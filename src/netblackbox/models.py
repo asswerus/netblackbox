@@ -39,6 +39,15 @@ class Sample:
     state: str
     gateway_ip: str
     probes: dict[str, Any]
+    observed_state: str | None = None
+    severity: str | None = None
+    sampling_mode: str = "normal"
+    sampling_interval_seconds: float | None = None
+
+    @property
+    def raw_state(self) -> str:
+        """Return the state observed before confirmation filtering."""
+        return self.observed_state or self.state
 
 
 @dataclass(slots=True)

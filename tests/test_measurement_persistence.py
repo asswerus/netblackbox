@@ -17,6 +17,10 @@ class FakeBackend(PlatformBackend):
         return []
 
 
+def successful_measurement(_context: object) -> Measurement:
+    return Measurement(True, 1.5)
+
+
 def test_external_measurement_is_embedded_in_probe_result() -> None:
     names = (
         "modem_ping",
@@ -28,10 +32,7 @@ def test_external_measurement_is_embedded_in_probe_result() -> None:
         "http_internet",
         "dns_resolution",
     )
-    plugins = [
-        FunctionProbePlugin(name, lambda _context: Measurement(True, 1.5))
-        for name in names
-    ]
+    plugins = [FunctionProbePlugin(name, successful_measurement) for name in names]
     plugins.append(
         FunctionProbePlugin(
             "custom_jitter",

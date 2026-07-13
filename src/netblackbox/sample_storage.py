@@ -23,8 +23,7 @@ def ensure_sample_context_columns(
         raise ValueError(f"unsupported sample table: {table_name}")
 
     existing = {
-        row[1]
-        for row in connection.execute(f"PRAGMA table_info({table_name})")
+        row[1] for row in connection.execute(f"PRAGMA table_info({table_name})")
     }
     for column, definition in SAMPLE_CONTEXT_COLUMNS.items():
         if column not in existing:
@@ -33,7 +32,9 @@ def ensure_sample_context_columns(
             )
 
 
-def sample_context_values(sample: Sample) -> tuple[str | None, str | None, str, float | None]:
+def sample_context_values(
+    sample: Sample,
+) -> tuple[str | None, str | None, str, float | None]:
     return (
         sample.observed_state,
         sample.severity,

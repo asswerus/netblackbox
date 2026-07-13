@@ -16,5 +16,6 @@
   "public_ip_check_interval_seconds": 300,
   "http_host": "127.0.0.1",
   "http_port": 8080,
-  "retention_days": 90
+  "retention_days": 90,
+  "external_probe_plugins": []
 }

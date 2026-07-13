@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 
@@ -33,6 +33,7 @@ class Config:
     http_host: str = "127.0.0.1"
     http_port: int = 8080
     retention_days: int = 90
+    external_probe_plugins: list[str] = field(default_factory=list)
 
     @property
     def base_dir(self) -> Path:

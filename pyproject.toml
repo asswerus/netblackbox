@@ -12,6 +12,15 @@ license = { text = "MIT" }
 authors = [{ name = "Albano Manoni" }]
 dependencies = []
 
+[project.optional-dependencies]
+dev = [
+  "black>=24.10",
+  "mypy>=1.14",
+  "pre-commit>=4.0",
+  "pytest>=8.3",
+  "ruff>=0.9",
+]
+
 [project.scripts]
 netblackbox = "netblackbox.__main__:main"
 
@@ -20,3 +29,29 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["netblackbox"]
+strict = true
+warn_unused_configs = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false

@@ -1,0 +1,13 @@
+{
+  "data_dir": "~/.local/share/netblackbox",
+  "modem_ip": "192.168.1.254",
+  "upstream_gateway_ip": null,
+  "check_interval_seconds": 2.0,
+  "confirmation_cycles": 2,
+  "socket_timeout_seconds": 1.5,
+  "http_timeout_seconds": 3.0,
+  "public_ip_check_interval_seconds": 300,
+  "http_host": "127.0.0.1",
+  "http_port": 8080,
+  "retention_days": 90
+}

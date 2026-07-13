@@ -10,14 +10,22 @@ from urllib.request import Request, urlopen
 from .config import Config
 from .models import ProbeResult
 from .platforms import PlatformBackend
+from .plugins import FunctionProbePlugin, Measurement, ProbeContext, ProbeRegistry
 
 
 class ProbeRunner:
-    def __init__(self, config: Config, backend: PlatformBackend):
+    def __init__(
+        self,
+        config: Config,
+        backend: PlatformBackend,
+        registry: ProbeRegistry | None = None,
+    ):
         self.config = config
         self.backend = backend
+        self.registry = registry or self._built_in_registry()
+        self._validate_required_plugins()
 
-    def ping(self, host: str) -> tuple[bool, float | None]:
+    def ping(self, host: str) -> Measurement:
         try:
             result = subprocess.run(
                 self.backend.ping_command(host),
@@ -29,73 +37,96 @@ class ProbeRunner:
             output = f"{result.stdout}\n{result.stderr}"
             match = re.search(r"time[=<]\s*([0-9]+(?:\.[0-9]+)?)\s*ms", output, re.IGNORECASE)
             latency = float(match.group(1)) if match else None
-            return result.returncode == 0, latency
-        except Exception:
-            return False, None
+            return Measurement(result.returncode == 0, latency)
+        except Exception as exc:
+            return Measurement(False, detail=f"{type(exc).__name__}: {exc}")
 
-    def tcp(self, host: str, port: int) -> tuple[bool, float | None]:
+    def tcp(self, host: str, port: int) -> Measurement:
         started = time.perf_counter()
         try:
             with socket.create_connection((host, port), timeout=self.config.socket_timeout_seconds):
-                return True, round((time.perf_counter() - started) * 1000, 2)
-        except OSError:
-            return False, None
+                return Measurement(True, round((time.perf_counter() - started) * 1000, 2))
+        except OSError as exc:
+            return Measurement(False, detail=f"{type(exc).__name__}: {exc}")
 
     @staticmethod
-    def dns() -> tuple[bool, float | None]:
+    def dns() -> Measurement:
         started = time.perf_counter()
         try:
             socket.getaddrinfo("example.com", 443, type=socket.SOCK_STREAM)
-            return True, round((time.perf_counter() - started) * 1000, 2)
-        except socket.gaierror:
-            return False, None
+            return Measurement(True, round((time.perf_counter() - started) * 1000, 2))
+        except socket.gaierror as exc:
+            return Measurement(False, detail=f"{type(exc).__name__}: {exc}")
 
-    def http(self) -> tuple[bool, float | None]:
+    def http(self) -> Measurement:
         started = time.perf_counter()
         try:
             request = Request(
                 "https://www.google.com/generate_204",
-                headers={"User-Agent": "NetBlackBox/0.2.0", "Cache-Control": "no-cache"},
+                headers={"User-Agent": "NetBlackBox/0.3.0", "Cache-Control": "no-cache"},
             )
             with urlopen(request, timeout=self.config.http_timeout_seconds) as response:
                 ok = 200 <= response.status < 400
-                return ok, round((time.perf_counter() - started) * 1000, 2) if ok else None
-        except Exception:
-            return False, None
+                latency = round((time.perf_counter() - started) * 1000, 2) if ok else None
+                return Measurement(ok, latency, detail=f"HTTP {response.status}")
+        except Exception as exc:
+            return Measurement(False, detail=f"{type(exc).__name__}: {exc}")
+
+    def _built_in_registry(self) -> ProbeRegistry:
+        return ProbeRegistry(
+            [
+                FunctionProbePlugin("modem_ping", lambda ctx: self.ping(ctx.modem_ip)),
+                FunctionProbePlugin("modem_http", lambda ctx: self.tcp(ctx.modem_ip, 80)),
+                FunctionProbePlugin("modem_https", lambda ctx: self.tcp(ctx.modem_ip, 443)),
+                FunctionProbePlugin("gateway_ping", lambda ctx: self.ping(ctx.gateway_ip)),
+                FunctionProbePlugin("cloudflare_tcp", lambda _ctx: self.tcp("1.1.1.1", 443)),
+                FunctionProbePlugin("google_dns_tcp", lambda _ctx: self.tcp("8.8.8.8", 53)),
+                FunctionProbePlugin("http_internet", lambda _ctx: self.http()),
+                FunctionProbePlugin("dns_resolution", lambda _ctx: self.dns()),
+            ]
+        )
+
+    def _validate_required_plugins(self) -> None:
+        required = {
+            "modem_ping",
+            "modem_http",
+            "modem_https",
+            "gateway_ping",
+            "cloudflare_tcp",
+            "google_dns_tcp",
+            "http_internet",
+            "dns_resolution",
+        }
+        missing = required.difference(self.registry.names())
+        if missing:
+            raise ValueError(f"missing required probe plugins: {', '.join(sorted(missing))}")
+
+    def run_measurements(self, gateway_ip: str) -> dict[str, Measurement]:
+        context = ProbeContext(modem_ip=self.config.modem_ip, gateway_ip=gateway_ip)
+        plugins = self.registry.plugins()
+        with ThreadPoolExecutor(max_workers=len(plugins)) as pool:
+            futures = {plugin.name: pool.submit(plugin.collect, context) for plugin in plugins}
+            return {name: future.result() for name, future in futures.items()}
 
     def run(self, gateway_ip: str) -> ProbeResult:
-        modem = self.config.modem_ip
-        checks = {
-            "modem_ping": lambda: self.ping(modem),
-            "modem_http": lambda: self.tcp(modem, 80),
-            "modem_https": lambda: self.tcp(modem, 443),
-            "gateway_ping": lambda: self.ping(gateway_ip),
-            "cloudflare_tcp": lambda: self.tcp("1.1.1.1", 443),
-            "google_dns_tcp": lambda: self.tcp("8.8.8.8", 53),
-            "http_internet": self.http,
-            "dns_resolution": self.dns,
-        }
-        with ThreadPoolExecutor(max_workers=len(checks)) as pool:
-            futures = {name: pool.submit(function) for name, function in checks.items()}
-            measurements = {name: future.result() for name, future in futures.items()}
-
+        measurements = self.run_measurements(gateway_ip)
         return ProbeResult(
-            modem_ping=measurements["modem_ping"][0],
-            modem_http=measurements["modem_http"][0],
-            modem_https=measurements["modem_https"][0],
-            gateway_ping=measurements["gateway_ping"][0],
-            cloudflare_tcp=measurements["cloudflare_tcp"][0],
-            google_dns_tcp=measurements["google_dns_tcp"][0],
-            http_internet=measurements["http_internet"][0],
-            dns_resolution=measurements["dns_resolution"][0],
-            modem_ping_ms=measurements["modem_ping"][1],
-            modem_http_ms=measurements["modem_http"][1],
-            modem_https_ms=measurements["modem_https"][1],
-            gateway_ping_ms=measurements["gateway_ping"][1],
-            cloudflare_tcp_ms=measurements["cloudflare_tcp"][1],
-            google_dns_tcp_ms=measurements["google_dns_tcp"][1],
-            http_internet_ms=measurements["http_internet"][1],
-            dns_resolution_ms=measurements["dns_resolution"][1],
+            modem_ping=measurements["modem_ping"].ok,
+            modem_http=measurements["modem_http"].ok,
+            modem_https=measurements["modem_https"].ok,
+            gateway_ping=measurements["gateway_ping"].ok,
+            cloudflare_tcp=measurements["cloudflare_tcp"].ok,
+            google_dns_tcp=measurements["google_dns_tcp"].ok,
+            http_internet=measurements["http_internet"].ok,
+            dns_resolution=measurements["dns_resolution"].ok,
+            modem_ping_ms=measurements["modem_ping"].latency_ms,
+            modem_http_ms=measurements["modem_http"].latency_ms,
+            modem_https_ms=measurements["modem_https"].latency_ms,
+            gateway_ping_ms=measurements["gateway_ping"].latency_ms,
+            cloudflare_tcp_ms=measurements["cloudflare_tcp"].latency_ms,
+            google_dns_tcp_ms=measurements["google_dns_tcp"].latency_ms,
+            http_internet_ms=measurements["http_internet"].latency_ms,
+            dns_resolution_ms=measurements["dns_resolution"].latency_ms,
         )
 
 

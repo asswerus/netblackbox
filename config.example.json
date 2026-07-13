@@ -1,0 +1,20 @@
+{
+  "base_dir": "~/netblackbox",
+  "modem_ip": "192.168.1.254",
+  "fastweb_gateway_ip": "100.74.248.1",
+  "check_interval_seconds": 2.0,
+  "confirmation_cycles": 2,
+  "recovery_confirmation_cycles": 2,
+  "socket_timeout_seconds": 1.5,
+  "http_timeout_seconds": 3.0,
+  "public_ip_check_interval_seconds": 300,
+  "report_refresh_interval_seconds": 300,
+  "http_host": "127.0.0.1",
+  "http_port": 8080,
+  "dns_test_hostname": "example.com",
+  "http_test_url": "https://www.google.com/generate_204",
+  "log_max_bytes": 5000000,
+  "log_backup_count": 5,
+  "diagnostics_retention_days": 30,
+  "database_retention_days": 90
+}

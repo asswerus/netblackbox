@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import re
 import socket
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 from urllib.request import Request, urlopen
 
@@ -15,43 +17,51 @@ class ProbeRunner:
         self.config = config
         self.backend = backend
 
-    def ping(self, host: str) -> bool:
+    def ping(self, host: str) -> tuple[bool, float | None]:
         try:
-            return subprocess.run(
+            result = subprocess.run(
                 self.backend.ping_command(host),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
                 timeout=3,
                 check=False,
-            ).returncode == 0
+            )
+            output = f"{result.stdout}\n{result.stderr}"
+            match = re.search(r"time[=<]\s*([0-9]+(?:\.[0-9]+)?)\s*ms", output, re.IGNORECASE)
+            latency = float(match.group(1)) if match else None
+            return result.returncode == 0, latency
         except Exception:
-            return False
+            return False, None
 
-    def tcp(self, host: str, port: int) -> bool:
+    def tcp(self, host: str, port: int) -> tuple[bool, float | None]:
+        started = time.perf_counter()
         try:
             with socket.create_connection((host, port), timeout=self.config.socket_timeout_seconds):
-                return True
+                return True, round((time.perf_counter() - started) * 1000, 2)
         except OSError:
-            return False
+            return False, None
 
     @staticmethod
-    def dns() -> bool:
+    def dns() -> tuple[bool, float | None]:
+        started = time.perf_counter()
         try:
             socket.getaddrinfo("example.com", 443, type=socket.SOCK_STREAM)
-            return True
+            return True, round((time.perf_counter() - started) * 1000, 2)
         except socket.gaierror:
-            return False
+            return False, None
 
-    def http(self) -> bool:
+    def http(self) -> tuple[bool, float | None]:
+        started = time.perf_counter()
         try:
             request = Request(
                 "https://www.google.com/generate_204",
                 headers={"User-Agent": "NetBlackBox/0.2.0", "Cache-Control": "no-cache"},
             )
             with urlopen(request, timeout=self.config.http_timeout_seconds) as response:
-                return 200 <= response.status < 400
+                ok = 200 <= response.status < 400
+                return ok, round((time.perf_counter() - started) * 1000, 2) if ok else None
         except Exception:
-            return False
+            return False, None
 
     def run(self, gateway_ip: str) -> ProbeResult:
         modem = self.config.modem_ip
@@ -67,8 +77,26 @@ class ProbeRunner:
         }
         with ThreadPoolExecutor(max_workers=len(checks)) as pool:
             futures = {name: pool.submit(function) for name, function in checks.items()}
-            values = {name: future.result() for name, future in futures.items()}
-        return ProbeResult(**values)
+            measurements = {name: future.result() for name, future in futures.items()}
+
+        return ProbeResult(
+            modem_ping=measurements["modem_ping"][0],
+            modem_http=measurements["modem_http"][0],
+            modem_https=measurements["modem_https"][0],
+            gateway_ping=measurements["gateway_ping"][0],
+            cloudflare_tcp=measurements["cloudflare_tcp"][0],
+            google_dns_tcp=measurements["google_dns_tcp"][0],
+            http_internet=measurements["http_internet"][0],
+            dns_resolution=measurements["dns_resolution"][0],
+            modem_ping_ms=measurements["modem_ping"][1],
+            modem_http_ms=measurements["modem_http"][1],
+            modem_https_ms=measurements["modem_https"][1],
+            gateway_ping_ms=measurements["gateway_ping"][1],
+            cloudflare_tcp_ms=measurements["cloudflare_tcp"][1],
+            google_dns_tcp_ms=measurements["google_dns_tcp"][1],
+            http_internet_ms=measurements["http_internet"][1],
+            dns_resolution_ms=measurements["dns_resolution"][1],
+        )
 
 
 def classify(probes: ProbeResult) -> str:

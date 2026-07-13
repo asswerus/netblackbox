@@ -6,13 +6,13 @@ import logging.handlers
 import sqlite3
 import threading
 import time
-from collections import deque
 from dataclasses import asdict
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+from .buffer import SampleBuffer
 from .config import Config
 from .models import ProbeResult, Sample
 from .platforms import PlatformBackend
@@ -48,8 +48,10 @@ class NetBlackBoxApp:
         self.probes = ProbeRunner(config, backend)
         self.snapshot_lock = threading.Lock()
         self.snapshot: dict[str, Any] = {"state": "STARTING", "platform": backend.name}
-        max_samples = max(10, int(config.ring_buffer_seconds / max(config.turbo_interval_seconds, 0.1)))
-        self.ring: deque[Sample] = deque(maxlen=max_samples)
+        self.ring = SampleBuffer(
+            window_seconds=config.ring_buffer_seconds,
+            minimum_interval_seconds=max(config.turbo_interval_seconds, 0.1),
+        )
         self._init_db()
         self._cleanup()
 
@@ -161,7 +163,7 @@ class NetBlackBoxApp:
                 (self.timestamp(), state, severity, json.dumps(asdict(probes))),
             )
             event_id = int(cursor.lastrowid)
-        for sample in list(self.ring):
+        for sample in self.ring.snapshot():
             self.save_event_sample(event_id, "pre", sample)
         return event_id
 
@@ -340,7 +342,7 @@ class NetBlackBoxApp:
                 gateway_ip=gateway_ip,
                 probes=asdict(probes),
             )
-            self.ring.append(sample)
+            self.ring.push(sample)
             self.save_sample(sample)
 
             state_changed = confirmed_state is not None and confirmed_state != previous_state

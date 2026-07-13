@@ -17,15 +17,33 @@ class ExampleProbe:
 
 Plugins are registered in a `ProbeRegistry`. Duplicate names are rejected because probe names are persisted in event data and therefore form part of the public data format.
 
-The first implementation deliberately keeps the existing eight built-in probe names and the current `ProbeResult` model unchanged. This gives NetBlackBox an extension boundary without changing classification, SQLite data, dashboard APIs, or existing installations.
+## External discovery
 
-## Current scope
+Third-party packages can publish entry points in the `netblackbox.probes` group. Providers remain disabled until explicitly listed in `external_probe_plugins`; `"*"` enables every installed provider.
 
-- Built-in probes now run through the registry.
-- A plugin can return success, latency and an optional diagnostic detail.
-- Collection remains concurrent.
-- Required built-in names are validated at startup.
+## Persisted format
 
-## Follow-up
+Every enabled built-in and external plugin is included under the `measurements` field of each probe result:
 
-The next stage will make enabled probes configurable and expose optional third-party plugins through Python entry points. Classification probes will remain explicitly declared so an unrelated extension cannot silently alter outage semantics.
+```json
+{
+  "measurements": {
+    "example_probe": {
+      "ok": true,
+      "latency_ms": 4.2,
+      "detail": "optional detail"
+    }
+  }
+}
+```
+
+Because NetBlackBox already stores the complete probe result, measurements are automatically included in:
+
+- regular SQLite samples;
+- event opening snapshots;
+- pre-event, active-event and post-event playback samples;
+- diagnostic metadata;
+- `/status`;
+- `/api/events/<id>` playback responses.
+
+External measurements remain observational. They do not alter the built-in outage classification unless a future, explicitly configured classifier consumes them.

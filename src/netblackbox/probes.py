@@ -121,6 +121,19 @@ class ProbeRunner:
         self.last_measurements = measurements
         return measurements
 
+    @staticmethod
+    def serialise_measurements(
+        measurements: dict[str, Measurement],
+    ) -> dict[str, dict[str, object]]:
+        return {
+            name: {
+                "ok": measurement.ok,
+                "latency_ms": measurement.latency_ms,
+                "detail": measurement.detail,
+            }
+            for name, measurement in measurements.items()
+        }
+
     def run(self, gateway_ip: str) -> ProbeResult:
         measurements = self.run_measurements(gateway_ip)
         return ProbeResult(
@@ -140,6 +153,7 @@ class ProbeRunner:
             google_dns_tcp_ms=measurements["google_dns_tcp"].latency_ms,
             http_internet_ms=measurements["http_internet"].latency_ms,
             dns_resolution_ms=measurements["dns_resolution"].latency_ms,
+            measurements=self.serialise_measurements(measurements),
         )
 
 

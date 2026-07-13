@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+config.json
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+logs/
+diagnostics/
+reports/
+netblackbox-export-*.zip

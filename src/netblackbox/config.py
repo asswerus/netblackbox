@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 
@@ -19,7 +19,14 @@ class Config:
     modem_ip: str = "192.168.1.254"
     upstream_gateway_ip: str | None = None
     check_interval_seconds: float = 2.0
+    turbo_interval_seconds: float = 0.25
+    turbo_duration_seconds: int = 60
     confirmation_cycles: int = 2
+    recovery_confirmation_cycles: int = 2
+    ring_buffer_seconds: int = 60
+    post_event_capture_seconds: int = 30
+    diagnostic_repeat_interval_seconds: int = 3
+    diagnostic_repeat_count: int = 4
     socket_timeout_seconds: float = 1.5
     http_timeout_seconds: float = 3.0
     public_ip_check_interval_seconds: int = 300

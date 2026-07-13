@@ -22,19 +22,13 @@ def ensure_sample_context_columns(
     if table_name not in {"samples", "event_samples"}:
         raise ValueError(f"unsupported sample table: {table_name}")
 
-    existing = {
-        row[1] for row in connection.execute(f"PRAGMA table_info({table_name})")
-    }
+    existing = {row[1] for row in connection.execute(f"PRAGMA table_info({table_name})")}
     for column, definition in SAMPLE_CONTEXT_COLUMNS.items():
         if column not in existing:
-            connection.execute(
-                f"ALTER TABLE {table_name} ADD COLUMN {column} {definition}"
-            )
+            connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column} {definition}")
 
 
-def sample_context_values(
-    sample: Sample,
-) -> tuple[str | None, str | None, str, float | None]:
+def sample_context_values(sample: Sample) -> tuple[str | None, str | None, str, float | None]:
     return (
         sample.observed_state,
         sample.severity,

@@ -10,7 +10,13 @@ from urllib.request import Request, urlopen
 from .config import Config
 from .models import ProbeResult
 from .platforms import PlatformBackend
-from .plugins import FunctionProbePlugin, Measurement, ProbeContext, ProbeRegistry
+from .plugins import (
+    FunctionProbePlugin,
+    Measurement,
+    ProbeContext,
+    ProbeRegistry,
+    discover_probe_plugins,
+)
 
 
 class ProbeRunner:
@@ -22,8 +28,9 @@ class ProbeRunner:
     ):
         self.config = config
         self.backend = backend
-        self.registry = registry or self._built_in_registry()
+        self.registry = registry or self._default_registry()
         self._validate_required_plugins()
+        self.last_measurements: dict[str, Measurement] = {}
 
     def ping(self, host: str) -> Measurement:
         try:
@@ -72,19 +79,23 @@ class ProbeRunner:
         except Exception as exc:
             return Measurement(False, detail=f"{type(exc).__name__}: {exc}")
 
-    def _built_in_registry(self) -> ProbeRegistry:
-        return ProbeRegistry(
-            [
-                FunctionProbePlugin("modem_ping", lambda ctx: self.ping(ctx.modem_ip)),
-                FunctionProbePlugin("modem_http", lambda ctx: self.tcp(ctx.modem_ip, 80)),
-                FunctionProbePlugin("modem_https", lambda ctx: self.tcp(ctx.modem_ip, 443)),
-                FunctionProbePlugin("gateway_ping", lambda ctx: self.ping(ctx.gateway_ip)),
-                FunctionProbePlugin("cloudflare_tcp", lambda _ctx: self.tcp("1.1.1.1", 443)),
-                FunctionProbePlugin("google_dns_tcp", lambda _ctx: self.tcp("8.8.8.8", 53)),
-                FunctionProbePlugin("http_internet", lambda _ctx: self.http()),
-                FunctionProbePlugin("dns_resolution", lambda _ctx: self.dns()),
-            ]
+    def _built_in_plugins(self) -> tuple[FunctionProbePlugin, ...]:
+        return (
+            FunctionProbePlugin("modem_ping", lambda ctx: self.ping(ctx.modem_ip)),
+            FunctionProbePlugin("modem_http", lambda ctx: self.tcp(ctx.modem_ip, 80)),
+            FunctionProbePlugin("modem_https", lambda ctx: self.tcp(ctx.modem_ip, 443)),
+            FunctionProbePlugin("gateway_ping", lambda ctx: self.ping(ctx.gateway_ip)),
+            FunctionProbePlugin("cloudflare_tcp", lambda _ctx: self.tcp("1.1.1.1", 443)),
+            FunctionProbePlugin("google_dns_tcp", lambda _ctx: self.tcp("8.8.8.8", 53)),
+            FunctionProbePlugin("http_internet", lambda _ctx: self.http()),
+            FunctionProbePlugin("dns_resolution", lambda _ctx: self.dns()),
         )
+
+    def _default_registry(self) -> ProbeRegistry:
+        registry = ProbeRegistry(self._built_in_plugins())
+        for plugin in discover_probe_plugins(self.config.external_probe_plugins):
+            registry.register(plugin)
+        return registry
 
     def _validate_required_plugins(self) -> None:
         required = {
@@ -106,7 +117,9 @@ class ProbeRunner:
         plugins = self.registry.plugins()
         with ThreadPoolExecutor(max_workers=len(plugins)) as pool:
             futures = {plugin.name: pool.submit(plugin.collect, context) for plugin in plugins}
-            return {name: future.result() for name, future in futures.items()}
+            measurements = {name: future.result() for name, future in futures.items()}
+        self.last_measurements = measurements
+        return measurements
 
     def run(self, gateway_ip: str) -> ProbeResult:
         measurements = self.run_measurements(gateway_ip)

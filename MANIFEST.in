@@ -1,0 +1,4 @@
+include README.md
+include LICENSE
+include config.cross-platform.example.json
+recursive-include src/netblackbox py.typed

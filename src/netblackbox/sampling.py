@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .config import Config
+
 
 @dataclass(frozen=True, slots=True)
 class SamplingDecision:
@@ -62,3 +64,14 @@ class AdaptiveSamplingPolicy:
     def reset(self) -> None:
         self._fast_until = 0.0
         self._turbo_until = 0.0
+
+
+def policy_from_config(config: Config) -> AdaptiveSamplingPolicy:
+    """Create the runtime policy from the public NetBlackBox configuration."""
+    return AdaptiveSamplingPolicy(
+        normal_interval_seconds=config.check_interval_seconds,
+        fast_interval_seconds=config.fast_interval_seconds,
+        turbo_interval_seconds=config.turbo_interval_seconds,
+        fast_duration_seconds=config.fast_duration_seconds,
+        turbo_duration_seconds=config.turbo_duration_seconds,
+    )

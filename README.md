@@ -2,7 +2,7 @@
 
 > Because “everything looks fine from here” is not a diagnosis.
 
-NetBlackBox is a dependency-free network outage recorder and diagnostic toolkit for macOS. It is designed to capture intermittent failures that disappear before an ISP support agent can inspect them.
+NetBlackBox is a dependency-free, cross-platform network outage recorder and forensic diagnostic toolkit for macOS, Linux, and Windows. It captures intermittent failures that disappear before an ISP support agent can inspect them, preserving what happened before, during, and after each incident.
 
 ## What it records
 
@@ -10,93 +10,125 @@ NetBlackBox is a dependency-free network outage recorder and diagnostic toolkit 
 - Upstream gateway reachability
 - Internet reachability over TCP and HTTP
 - DNS resolution failures
-- Outage start time, end time, duration, and type
-- Public IP changes
-- Routing table, ARP table, DNS configuration, interface state, ping, traceroute, and curl diagnostics during failures
+- Probe latency and plugin-provided measurements
+- Raw observed state and confirmed state
+- Normal, fast, and turbo sampling context
+- Outage start time, end time, duration, type, and severity
+- Repeated platform-specific diagnostic snapshots during failures
+- Pre-event, active-event, and post-event forensic samples
 
-Data is stored locally in SQLite. NetBlackBox also provides a local dashboard, JSON endpoints, rotating logs, HTML reports, and an exportable ZIP bundle for support cases.
+Data is stored locally in SQLite. NetBlackBox exposes local JSON endpoints and can render an interactive, self-contained HTML timeline from event playback data.
+
+## Adaptive sampling
+
+NetBlackBox normally monitors at a low-cost cadence. A suspicious sample switches it to fast mode before the incident is confirmed; a confirmed fault activates turbo sampling.
+
+```text
+normal -> suspicious sample -> fast -> confirmed incident -> turbo -> normal
+```
+
+This captures short transitions without continuously polling at maximum frequency.
 
 ## Status types
 
-- `MODEM_LAN_KO` — the router is unreachable from the Mac
-- `WAN_GATEWAY_KO` — the router is reachable, but the configured upstream gateway and Internet are not
+- `MODEM_LAN_KO` — the router is unreachable from the local machine
+- `WAN_GATEWAY_KO` — the router is reachable, but the upstream gateway and Internet are not
 - `INTERNET_KO_MODEM_OK` — the router and upstream gateway respond, but Internet probes fail
-- `DNS_KO` — Internet works, but DNS resolution fails
-- `OK_GATEWAY_ICMP_BLOCCATO` — connectivity works although the upstream gateway ignores ICMP
+- `DNS_KO` — Internet connectivity works, but DNS resolution fails
+- `OK_GATEWAY_ICMP_BLOCKED` — connectivity works although the upstream gateway ignores ICMP
 - `OK` — connectivity is healthy
 
 ## Requirements
 
-- macOS
-- Python 3
-- No third-party Python packages
+- macOS, Linux, or Windows
+- Python 3.10 or newer
+- No third-party runtime Python packages
 
-## Install
+## Development install
 
 ```bash
 git clone https://github.com/asswerus/netblackbox.git
 cd netblackbox
-chmod +x install.sh uninstall.sh
-./install.sh
+python3 -m venv .venv
+source .venv/bin/activate  # Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+pytest
 ```
 
-The installer copies the application to `~/netblackbox`, creates a `launchd` agent, starts it immediately, and restarts it automatically if it exits.
-
-## Local endpoints
-
-- Dashboard: `http://127.0.0.1:8080/`
-- Current state: `http://127.0.0.1:8080/status`
-- Event data: `http://127.0.0.1:8080/api/events`
-
-## Useful commands
-
-```bash
-# Follow the application log
-tail -f ~/netblackbox/logs/netblackbox.log
-
-# Inspect the launchd job
-launchctl print gui/$(id -u)/io.github.asswerus.netblackbox
-
-# Read current state
-curl -s http://127.0.0.1:8080/status | python3 -m json.tool
-
-# Generate a static report
-python3 ~/netblackbox/netblackbox.py --report
-
-# Print a 30-day JSON summary
-python3 ~/netblackbox/netblackbox.py --summary
-
-# Build a ZIP bundle for an ISP support case
-python3 ~/netblackbox/netblackbox.py --export
-```
+The repository includes Black, Ruff, mypy, pre-commit, and a GitHub Actions matrix covering macOS, Linux, and Windows.
 
 ## Configuration
 
-The active configuration is stored at:
+Copy the example configuration and adjust addresses and intervals for your environment:
+
+```bash
+cp config.example.json config.json
+```
+
+Adaptive-sampling settings include:
+
+```json
+{
+  "check_interval_seconds": 2.0,
+  "fast_interval_seconds": 0.5,
+  "turbo_interval_seconds": 0.25,
+  "fast_duration_seconds": 10.0,
+  "turbo_duration_seconds": 60
+}
+```
+
+Existing configuration files remain compatible because new settings have defaults.
+
+## Local endpoints
+
+With the monitor running on the default bind address:
+
+- Current state: `http://127.0.0.1:8080/status`
+- Event summary: `http://127.0.0.1:8080/api/events`
+- Event playback JSON: `http://127.0.0.1:8080/api/events/<id>`
+
+The timeline renderer and route adapter are available in the codebase; direct server exposure of `/events/<id>/timeline` is the next integration step.
+
+A playback sample can distinguish the displayed state from the raw observation that triggered faster sampling:
+
+```json
+{
+  "state": "OK",
+  "observed_state": "WAN_GATEWAY_KO",
+  "raw_state": "WAN_GATEWAY_KO",
+  "severity": "MAJOR",
+  "sampling_mode": "fast",
+  "sampling_interval_seconds": 0.5
+}
+```
+
+## Plugin probes
+
+External probes can be discovered through the Python entry-point group:
 
 ```text
-~/netblackbox/config.json
+netblackbox.probes
 ```
 
-The included `config.example.json` contains the defaults used during installation. The `fastweb_gateway_ip` field currently reflects the original test environment; users of other ISPs should replace it with their upstream gateway address when known.
+They are opt-in through `external_probe_plugins`. Plugin measurements are persisted in samples and playback, but do not silently alter the built-in incident classification.
 
-After changing the configuration, restart the service:
+## Storage and privacy
 
-```bash
-launchctl kickstart -k gui/$(id -u)/io.github.asswerus.netblackbox
-```
+NetBlackBox runs locally and binds to `127.0.0.1` by default. SQLite data, logs, and diagnostic snapshots may contain local addressing, routing details, public IP information, and other network metadata. Inspect any exported material before sharing it.
 
-## Uninstall the service
+## Project status
 
-```bash
-./uninstall.sh
-```
+The current development line includes:
 
-This removes the `launchd` agent but preserves collected data under `~/netblackbox`.
+- cross-platform probe and diagnostic backends
+- forensic sample buffering
+- adaptive three-speed sampling
+- SQLite event playback
+- external probe discovery and measurement persistence
+- interactive HTML event timeline rendering
+- multiplaform CI, linting, formatting, and strict typing gates
 
-## Privacy
-
-NetBlackBox runs locally. The dashboard binds to `127.0.0.1` by default. Diagnostic exports may contain local addressing, routing information, public IP history, and other network metadata; inspect archives before sharing them.
+The project is under active development; installation and service-management workflows are still being consolidated across operating systems.
 
 ## License
 

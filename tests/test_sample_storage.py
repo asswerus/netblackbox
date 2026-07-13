@@ -20,9 +20,7 @@ def test_context_columns_are_added_idempotently(table_name: str) -> None:
     ensure_sample_context_columns(connection, table_name)
     ensure_sample_context_columns(connection, table_name)
 
-    columns = {
-        row[1]: row[2] for row in connection.execute(f"PRAGMA table_info({table_name})")
-    }
+    columns = {row[1]: row[2] for row in connection.execute(f"PRAGMA table_info({table_name})")}
     assert columns["observed_state"] == "TEXT"
     assert columns["severity"] == "TEXT"
     assert columns["sampling_mode"] == "TEXT"

@@ -17,6 +17,7 @@ from .config import Config
 from .models import ProbeResult, Sample
 from .platforms import PlatformBackend
 from .probes import ProbeRunner, classify
+from .sampling import policy_from_config
 
 HEALTHY_STATES = {"OK", "OK_GATEWAY_ICMP_BLOCKED"}
 
@@ -46,6 +47,7 @@ class NetBlackBoxApp:
             path.mkdir(parents=True, exist_ok=True)
         self.logger = self._build_logger()
         self.probes = ProbeRunner(config, backend)
+        self.sampling = policy_from_config(config)
         self.snapshot_lock = threading.Lock()
         self.snapshot: dict[str, Any] = {"state": "STARTING", "platform": backend.name}
         self.ring = SampleBuffer(
@@ -314,7 +316,6 @@ class NetBlackBoxApp:
         event_started_at: datetime | None = None
         post_event_id: int | None = None
         post_capture_until: datetime | None = None
-        turbo_until: datetime | None = None
         self.logger.info("NetBlackBox forensic monitor started on %s", self.backend.name)
 
         while True:
@@ -322,6 +323,7 @@ class NetBlackBoxApp:
             gateway_ip = self.config.upstream_gateway_ip or self.backend.default_gateway() or "0.0.0.0"
             probes = self.probes.run(gateway_ip)
             observed_state = classify(probes)
+            self.sampling.observe(observed_state in HEALTHY_STATES, cycle_started)
 
             if observed_state == candidate_state:
                 candidate_count += 1
@@ -360,7 +362,7 @@ class NetBlackBoxApp:
                     event_started_at = self.now()
                     event_state = confirmed_state
                     event_id = self.open_event(confirmed_state, probes)
-                    turbo_until = self.now() + timedelta(seconds=self.config.turbo_duration_seconds)
+                    self.sampling.activate_turbo(cycle_started)
                     threading.Thread(
                         target=self.collect_diagnostics,
                         args=(event_id, confirmed_state, probes, gateway_ip),
@@ -377,6 +379,7 @@ class NetBlackBoxApp:
                     post_event_id = None
                     post_capture_until = None
 
+            decision = self.sampling.decision(time.monotonic())
             with self.snapshot_lock:
                 self.snapshot = {
                     "timestamp": self.timestamp(),
@@ -388,12 +391,11 @@ class NetBlackBoxApp:
                     "internet_reachable": probes.internet_reachable,
                     "active_event_id": event_id,
                     "active_event_started_at": self.timestamp(event_started_at) if event_started_at else None,
-                    "turbo_sampling": bool(turbo_until and self.now() <= turbo_until),
+                    "sampling_mode": decision.mode,
+                    "sampling_interval_seconds": decision.interval_seconds,
+                    "turbo_sampling": decision.mode == "turbo",
                     "probes": asdict(probes),
                 }
 
-            interval = self.config.check_interval_seconds
-            if turbo_until is not None and self.now() <= turbo_until:
-                interval = self.config.turbo_interval_seconds
             elapsed = time.monotonic() - cycle_started
-            time.sleep(max(0.05, interval - elapsed))
+            time.sleep(max(0.05, decision.interval_seconds - elapsed))

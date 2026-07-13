@@ -34,9 +34,7 @@ class SampleBuffer:
         latest = self._parse_timestamp(self._samples[-1].timestamp)
         cutoff = latest - timedelta(seconds=seconds)
         return tuple(
-            sample
-            for sample in self._samples
-            if self._parse_timestamp(sample.timestamp) >= cutoff
+            sample for sample in self._samples if self._parse_timestamp(sample.timestamp) >= cutoff
         )
 
     def clear(self) -> None:

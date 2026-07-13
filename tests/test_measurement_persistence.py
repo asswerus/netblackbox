@@ -1,5 +1,5 @@
 from netblackbox.config import Config
-from netblackbox.platforms import PlatformBackend
+from netblackbox.platforms import DiagnosticCommand, PlatformBackend
 from netblackbox.plugins import FunctionProbePlugin, Measurement, ProbeRegistry
 from netblackbox.probes import ProbeRunner
 
@@ -13,7 +13,7 @@ class FakeBackend(PlatformBackend):
     def default_gateway(self) -> str | None:
         return "192.0.2.1"
 
-    def diagnostics(self, modem_ip: str, gateway_ip: str) -> list:
+    def diagnostics(self, modem_ip: str, gateway_ip: str) -> list[DiagnosticCommand]:
         return []
 
 

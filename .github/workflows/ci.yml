@@ -15,9 +15,16 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[dev]"
-      - run: black --check src tests
-      - run: ruff check src tests
-      - run: mypy src/netblackbox
+      - name: Run quality checks
+        shell: bash
+        run: |
+          status=0
+
+          black --check src tests || status=1
+          ruff check src tests || status=1
+          mypy src/netblackbox || status=1
+
+          exit "$status"
 
   test:
     strategy:

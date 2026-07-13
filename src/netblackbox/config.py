@@ -19,7 +19,9 @@ class Config:
     modem_ip: str = "192.168.1.254"
     upstream_gateway_ip: str | None = None
     check_interval_seconds: float = 2.0
+    fast_interval_seconds: float = 0.5
     turbo_interval_seconds: float = 0.25
+    fast_duration_seconds: float = 10.0
     turbo_duration_seconds: int = 60
     confirmation_cycles: int = 2
     recovery_confirmation_cycles: int = 2

@@ -29,7 +29,8 @@ def test_external_measurement_is_embedded_in_probe_result() -> None:
         "dns_resolution",
     )
     plugins = [
-        FunctionProbePlugin(name, lambda _context: Measurement(True, 1.5)) for name in names
+        FunctionProbePlugin(name, lambda _context: Measurement(True, 1.5))
+        for name in names
     ]
     plugins.append(
         FunctionProbePlugin(

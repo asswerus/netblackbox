@@ -7,9 +7,7 @@ from netblackbox.models import Sample
 
 
 def sample_at(offset_seconds: float) -> Sample:
-    timestamp = datetime(2026, 7, 13, tzinfo=timezone.utc) + timedelta(
-        seconds=offset_seconds
-    )
+    timestamp = datetime(2026, 7, 13, tzinfo=timezone.utc) + timedelta(seconds=offset_seconds)
     return Sample(
         timestamp=timestamp.isoformat(timespec="milliseconds"),
         state="OK",

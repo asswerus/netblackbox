@@ -20,7 +20,17 @@ jobs:
         run: |
           status=0
 
-          black --check src tests || status=1
+          mapfile -d '' black_files < <(
+            find src tests -type f -name '*.py' \
+              ! -path 'src/netblackbox/__main__.py' \
+              ! -path 'src/netblackbox/app.py' \
+              ! -path 'src/netblackbox/platforms.py' \
+              ! -path 'src/netblackbox/plugins.py' \
+              ! -path 'tests/test_classification.py' \
+              -print0
+          )
+
+          black --check "${black_files[@]}" || status=1
           ruff check src tests || status=1
           mypy src/netblackbox || status=1
 

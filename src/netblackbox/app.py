@@ -17,6 +17,7 @@ from .config import Config
 from .models import ProbeResult, Sample
 from .platforms import PlatformBackend
 from .probes import ProbeRunner, classify
+from .sample_storage import decode_sample_row, ensure_sample_context_columns, sample_context_values
 from .sampling import policy_from_config
 
 HEALTHY_STATES = {"OK", "OK_GATEWAY_ICMP_BLOCKED"}
@@ -69,9 +70,14 @@ class NetBlackBoxApp:
         logger = logging.getLogger("NetBlackBox")
         logger.setLevel(logging.INFO)
         logger.handlers.clear()
-        formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%Y-%m-%dT%H:%M:%S%z")
+        formatter = logging.Formatter(
+            "%(asctime)s %(levelname)s %(message)s", "%Y-%m-%dT%H:%M:%S%z"
+        )
         file_handler = logging.handlers.RotatingFileHandler(
-            self.logs_dir / "netblackbox.log", maxBytes=5_000_000, backupCount=5, encoding="utf-8"
+            self.logs_dir / "netblackbox.log",
+            maxBytes=5_000_000,
+            backupCount=5,
+            encoding="utf-8",
         )
         file_handler.setFormatter(formatter)
         stream_handler = logging.StreamHandler()
@@ -120,49 +126,85 @@ class NetBlackBoxApp:
                 );
                 CREATE INDEX IF NOT EXISTS idx_samples_timestamp ON samples(timestamp);
                 CREATE INDEX IF NOT EXISTS idx_events_start_time ON events(start_time);
-                CREATE INDEX IF NOT EXISTS idx_event_samples_event ON event_samples(event_id, timestamp);
+                CREATE INDEX IF NOT EXISTS idx_event_samples_event
+                    ON event_samples(event_id, timestamp);
                 """
             )
             columns = {row[1] for row in connection.execute("PRAGMA table_info(events)")}
             migrations = {
                 "severity": "ALTER TABLE events ADD COLUMN severity TEXT",
-                "diagnostics_started_at": "ALTER TABLE events ADD COLUMN diagnostics_started_at TEXT",
-                "diagnostics_finished_at": "ALTER TABLE events ADD COLUMN diagnostics_finished_at TEXT",
+                "diagnostics_started_at": (
+                    "ALTER TABLE events ADD COLUMN diagnostics_started_at TEXT"
+                ),
+                "diagnostics_finished_at": (
+                    "ALTER TABLE events ADD COLUMN diagnostics_finished_at TEXT"
+                ),
             }
             for column, statement in migrations.items():
                 if column not in columns:
                     connection.execute(statement)
+            ensure_sample_context_columns(connection, "samples")
+            ensure_sample_context_columns(connection, "event_samples")
 
     def _cleanup(self) -> None:
         cutoff = self.timestamp(self.now() - timedelta(days=self.config.retention_days))
         with self.db() as connection:
-            old_ids = [row[0] for row in connection.execute("SELECT id FROM events WHERE start_time < ?", (cutoff,))]
+            old_ids = [
+                row[0]
+                for row in connection.execute(
+                    "SELECT id FROM events WHERE start_time < ?", (cutoff,)
+                )
+            ]
             if old_ids:
                 placeholders = ",".join("?" for _ in old_ids)
-                connection.execute(f"DELETE FROM event_samples WHERE event_id IN ({placeholders})", old_ids)
+                connection.execute(
+                    f"DELETE FROM event_samples WHERE event_id IN ({placeholders})", old_ids
+                )
             connection.execute("DELETE FROM samples WHERE timestamp < ?", (cutoff,))
             connection.execute("DELETE FROM events WHERE start_time < ?", (cutoff,))
 
     def save_sample(self, sample: Sample) -> None:
         with self.db() as connection:
             connection.execute(
-                "INSERT INTO samples(timestamp, state, probes_json) VALUES(?,?,?)",
-                (sample.timestamp, sample.state, json.dumps(sample.probes)),
+                """
+                INSERT INTO samples(
+                    timestamp, state, probes_json, observed_state, severity,
+                    sampling_mode, sampling_interval_seconds
+                ) VALUES(?,?,?,?,?,?,?)
+                """,
+                (
+                    sample.timestamp,
+                    sample.state,
+                    json.dumps(sample.probes),
+                    *sample_context_values(sample),
+                ),
             )
 
     def save_event_sample(self, event_id: int, phase: str, sample: Sample) -> None:
         with self.db() as connection:
             connection.execute(
-                "INSERT INTO event_samples(event_id,timestamp,phase,state,gateway_ip,probes_json) VALUES(?,?,?,?,?,?)",
-                (event_id, sample.timestamp, phase, sample.state, sample.gateway_ip, json.dumps(sample.probes)),
+                """
+                INSERT INTO event_samples(
+                    event_id, timestamp, phase, state, gateway_ip, probes_json,
+                    observed_state, severity, sampling_mode, sampling_interval_seconds
+                ) VALUES(?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    event_id,
+                    sample.timestamp,
+                    phase,
+                    sample.state,
+                    sample.gateway_ip,
+                    json.dumps(sample.probes),
+                    *sample_context_values(sample),
+                ),
             )
 
     def open_event(self, state: str, probes: ProbeResult) -> int:
-        severity = severity_for(state)
         with self.db() as connection:
             cursor = connection.execute(
-                "INSERT INTO events(start_time, state, severity, probes_json) VALUES(?,?,?,?)",
-                (self.timestamp(), state, severity, json.dumps(asdict(probes))),
+                "INSERT INTO events(start_time,state,severity,probes_json) VALUES(?,?,?,?)",
+                (self.timestamp(), state, severity_for(state), json.dumps(asdict(probes))),
             )
             event_id = int(cursor.lastrowid)
         for sample in self.ring.snapshot():
@@ -174,15 +216,12 @@ class NetBlackBoxApp:
         duration = round((ended_at - started_at).total_seconds(), 3)
         with self.db() as connection:
             connection.execute(
-                "UPDATE events SET end_time=?, duration_seconds=?, severity=? WHERE id=?",
+                "UPDATE events SET end_time=?,duration_seconds=?,severity=? WHERE id=?",
                 (self.timestamp(ended_at), duration, severity_for(state, duration), event_id),
             )
 
     def collect_diagnostic_snapshot(
-        self,
-        folder: Path,
-        index: int,
-        gateway_ip: str,
+        self, folder: Path, index: int, gateway_ip: str
     ) -> None:
         snapshot_dir = folder / f"snapshot_{index:02d}"
         snapshot_dir.mkdir(parents=True, exist_ok=True)
@@ -194,13 +233,18 @@ class NetBlackBoxApp:
                 encoding="utf-8",
             )
 
-    def collect_diagnostics(self, event_id: int, state: str, probes: ProbeResult, gateway_ip: str) -> None:
-        folder = self.diagnostics_dir / f"{self.now().strftime('%Y%m%d_%H%M%S')}_{state.lower()}_{event_id}"
+    def collect_diagnostics(
+        self, event_id: int, state: str, probes: ProbeResult, gateway_ip: str
+    ) -> None:
+        folder = (
+            self.diagnostics_dir
+            / f"{self.now().strftime('%Y%m%d_%H%M%S')}_{state.lower()}_{event_id}"
+        )
         folder.mkdir(parents=True, exist_ok=True)
         started = self.timestamp()
         with self.db() as connection:
             connection.execute(
-                "UPDATE events SET diagnostics_path=?, diagnostics_started_at=? WHERE id=?",
+                "UPDATE events SET diagnostics_path=?,diagnostics_started_at=? WHERE id=?",
                 (str(folder), started, event_id),
             )
         (folder / "metadata.json").write_text(
@@ -221,20 +265,22 @@ class NetBlackBoxApp:
             self.collect_diagnostic_snapshot(folder, index, gateway_ip)
             if index + 1 < self.config.diagnostic_repeat_count:
                 time.sleep(self.config.diagnostic_repeat_interval_seconds)
-        finished = self.timestamp()
         with self.db() as connection:
             connection.execute(
                 "UPDATE events SET diagnostics_finished_at=? WHERE id=?",
-                (finished, event_id),
+                (self.timestamp(), event_id),
             )
         self.logger.info("Repeated diagnostics saved to %s", folder)
 
     def summary(self, days: int = 30) -> dict[str, Any]:
         cutoff = self.timestamp(self.now() - timedelta(days=days))
         with self.db() as connection:
-            rows = [dict(row) for row in connection.execute(
-                "SELECT * FROM events WHERE start_time >= ? ORDER BY start_time", (cutoff,)
-            )]
+            rows = [
+                dict(row)
+                for row in connection.execute(
+                    "SELECT * FROM events WHERE start_time >= ? ORDER BY start_time", (cutoff,)
+                )
+            ]
         completed = [row for row in rows if row["duration_seconds"] is not None]
         by_hour = {str(hour): 0 for hour in range(24)}
         by_state: dict[str, int] = {}
@@ -243,14 +289,20 @@ class NetBlackBoxApp:
             hour = datetime.fromisoformat(row["start_time"]).hour
             by_hour[str(hour)] += 1
             by_state[row["state"]] = by_state.get(row["state"], 0) + 1
-            severity = row.get("severity") or severity_for(row["state"], row.get("duration_seconds") or 0)
+            severity = row.get("severity") or severity_for(
+                row["state"], row.get("duration_seconds") or 0
+            )
             by_severity[severity] = by_severity.get(severity, 0) + 1
         return {
             "generated_at": self.timestamp(),
             "platform": self.backend.name,
             "event_count": len(rows),
-            "total_duration_seconds": round(sum(float(row["duration_seconds"]) for row in completed), 3),
-            "longest_duration_seconds": max((float(row["duration_seconds"]) for row in completed), default=0),
+            "total_duration_seconds": round(
+                sum(float(row["duration_seconds"]) for row in completed), 3
+            ),
+            "longest_duration_seconds": max(
+                (float(row["duration_seconds"]) for row in completed), default=0
+            ),
             "by_hour": by_hour,
             "by_state": by_state,
             "by_severity": by_severity,
@@ -260,14 +312,20 @@ class NetBlackBoxApp:
     def event_playback(self, event_id: int) -> dict[str, Any]:
         with self.db() as connection:
             event = connection.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
-            samples = [dict(row) for row in connection.execute(
-                "SELECT timestamp,phase,state,gateway_ip,probes_json FROM event_samples WHERE event_id=? ORDER BY timestamp",
-                (event_id,),
-            )]
+            samples = [
+                decode_sample_row(dict(row))
+                for row in connection.execute(
+                    """
+                    SELECT timestamp,phase,state,gateway_ip,probes_json,
+                           observed_state,severity,sampling_mode,
+                           sampling_interval_seconds
+                    FROM event_samples WHERE event_id=? ORDER BY timestamp
+                    """,
+                    (event_id,),
+                )
+            ]
         if event is None:
             raise KeyError(event_id)
-        for sample in samples:
-            sample["probes"] = json.loads(sample.pop("probes_json"))
         return {"event": dict(event), "samples": samples}
 
     def _serve(self) -> None:
@@ -297,9 +355,15 @@ class NetBlackBoxApp:
                         self.send_body(404, "application/json", b'{"error":"event not found"}')
                     return
                 if self.path.startswith("/api/events"):
-                    self.send_body(200, "application/json", json.dumps(app.summary(), indent=2).encode())
+                    self.send_body(
+                        200, "application/json", json.dumps(app.summary(), indent=2).encode()
+                    )
                     return
-                self.send_body(200, "text/plain; charset=utf-8", b"NetBlackBox is running. Use /status or /api/events.\n")
+                self.send_body(
+                    200,
+                    "text/plain; charset=utf-8",
+                    b"NetBlackBox is running. Use /status or /api/events.\n",
+                )
 
             def log_message(self, *_: object) -> None:
                 return
@@ -320,7 +384,9 @@ class NetBlackBoxApp:
 
         while True:
             cycle_started = time.monotonic()
-            gateway_ip = self.config.upstream_gateway_ip or self.backend.default_gateway() or "0.0.0.0"
+            gateway_ip = (
+                self.config.upstream_gateway_ip or self.backend.default_gateway() or "0.0.0.0"
+            )
             probes = self.probes.run(gateway_ip)
             observed_state = classify(probes)
             self.sampling.observe(observed_state in HEALTHY_STATES, cycle_started)
@@ -338,11 +404,16 @@ class NetBlackBoxApp:
             )
             confirmed_state = candidate_state if candidate_count >= needed else previous_state
             current_state = confirmed_state or observed_state
+            decision = self.sampling.decision(time.monotonic())
             sample = Sample(
                 timestamp=self.timestamp(),
                 state=current_state,
                 gateway_ip=gateway_ip,
                 probes=asdict(probes),
+                observed_state=observed_state,
+                severity=severity_for(observed_state),
+                sampling_mode=decision.mode,
+                sampling_interval_seconds=decision.interval_seconds,
             )
             self.ring.push(sample)
             self.save_sample(sample)
@@ -350,14 +421,19 @@ class NetBlackBoxApp:
             state_changed = confirmed_state is not None and confirmed_state != previous_state
             if state_changed:
                 self.logger.info("%s :: %s", confirmed_state, json.dumps(asdict(probes)))
-                if event_id is not None and event_started_at is not None and event_state is not None:
+                if (
+                    event_id is not None
+                    and event_started_at is not None
+                    and event_state is not None
+                ):
                     self.close_event(event_id, event_started_at, event_state)
                     post_event_id = event_id
-                    post_capture_until = self.now() + timedelta(seconds=self.config.post_event_capture_seconds)
+                    post_capture_until = self.now() + timedelta(
+                        seconds=self.config.post_event_capture_seconds
+                    )
                     event_id = None
                     event_started_at = None
                     event_state = None
-
                 if confirmed_state not in HEALTHY_STATES:
                     event_started_at = self.now()
                     event_state = confirmed_state
@@ -390,7 +466,9 @@ class NetBlackBoxApp:
                     "modem_reachable": probes.modem_reachable,
                     "internet_reachable": probes.internet_reachable,
                     "active_event_id": event_id,
-                    "active_event_started_at": self.timestamp(event_started_at) if event_started_at else None,
+                    "active_event_started_at": (
+                        self.timestamp(event_started_at) if event_started_at else None
+                    ),
                     "sampling_mode": decision.mode,
                     "sampling_interval_seconds": decision.interval_seconds,
                     "turbo_sampling": decision.mode == "turbo",

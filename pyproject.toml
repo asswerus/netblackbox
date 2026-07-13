@@ -12,6 +12,15 @@ license = { text = "MIT" }
 authors = [{ name = "Albano Manoni" }]
 dependencies = []
 
+[project.optional-dependencies]
+dev = [
+  "black>=24.10",
+  "mypy>=1.14",
+  "pre-commit>=4.0",
+  "pytest>=8.3",
+  "ruff>=0.9",
+]
+
 [project.scripts]
 netblackbox = "netblackbox.__main__:main"
 
@@ -20,3 +29,40 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+extend-exclude = '''
+(?x)(
+  ^src/netblackbox/(app|platforms|plugins|__main__)\.py$
+  | ^tests/test_classification\.py$
+)
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+"src/netblackbox/config.py" = ["UP037"]
+"src/netblackbox/platforms.py" = ["F401"]
+"src/netblackbox/plugins.py" = ["UP035"]
+"tests/test_macos_scripts.py" = ["I001"]
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["netblackbox"]
+strict = true
+warn_unused_configs = true
+warn_unused_ignores = false
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = "netblackbox.app"
+disable_error_code = ["arg-type"]

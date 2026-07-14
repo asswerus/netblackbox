@@ -42,9 +42,7 @@ class ProbeRunner:
                 check=False,
             )
             output = f"{result.stdout}\n{result.stderr}"
-            match = re.search(
-                r"time[=<]\s*([0-9]+(?:\.[0-9]+)?)\s*ms", output, re.IGNORECASE
-            )
+            match = re.search(r"time[=<]\s*([0-9]+(?:\.[0-9]+)?)\s*ms", output, re.IGNORECASE)
             latency = float(match.group(1)) if match else None
             return Measurement(result.returncode == 0, latency)
         except Exception as exc:
@@ -53,9 +51,7 @@ class ProbeRunner:
     def tcp(self, host: str, port: int) -> Measurement:
         started = time.perf_counter()
         try:
-            with socket.create_connection(
-                (host, port), timeout=self.config.socket_timeout_seconds
-            ):
+            with socket.create_connection((host, port), timeout=self.config.socket_timeout_seconds):
                 return Measurement(True, round((time.perf_counter() - started) * 1000, 2))
         except OSError as exc:
             return Measurement(False, detail=f"{type(exc).__name__}: {exc}")
@@ -162,9 +158,7 @@ class ProbeRunner:
 
 
 def classify(probes: ProbeResult) -> str:
-    internet_path_healthy = (
-        probes.cloudflare_tcp and probes.google_dns_tcp and probes.http_internet
-    )
+    internet_path_healthy = probes.cloudflare_tcp and probes.google_dns_tcp and probes.http_internet
     modem_path_healthy = probes.modem_ping and probes.modem_http and probes.modem_https
 
     if not probes.modem_reachable:

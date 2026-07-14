@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from types import TracebackType
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 _original_connect = sqlite3.connect
 _installed = False
@@ -16,7 +16,7 @@ class ClosingConnection(sqlite3.Connection):
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: TracebackType | None,
-    ) -> bool:
+    ) -> Literal[False]:
         try:
             return super().__exit__(exc_type, exc_value, traceback)
         finally:

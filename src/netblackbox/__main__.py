@@ -4,9 +4,9 @@ import argparse
 import json
 from pathlib import Path
 
-from .app import NetBlackBoxApp
 from .config import Config, default_data_dir
 from .platforms import current_backend
+from .server_app import IncidentApiApp
 
 
 def main() -> None:
@@ -21,7 +21,7 @@ def main() -> None:
     args = parser.parse_args()
 
     config = Config.load(args.config)
-    app = NetBlackBoxApp(config, current_backend())
+    app = IncidentApiApp(config, current_backend())
 
     if args.summary:
         print(json.dumps(app.summary(), indent=2))

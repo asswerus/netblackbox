@@ -158,7 +158,14 @@ class ProbeRunner:
 
 
 def classify(probes: ProbeResult) -> str:
+    internet_path_healthy = (
+        probes.cloudflare_tcp and probes.google_dns_tcp and probes.http_internet
+    )
+    modem_path_healthy = probes.modem_ping and probes.modem_http and probes.modem_https
+
     if not probes.modem_reachable:
+        if probes.internet_reachable:
+            return "PARTIAL_CONNECTIVITY"
         return "MODEM_LAN_KO"
     if not probes.internet_reachable and not probes.gateway_ping:
         return "WAN_GATEWAY_KO"
@@ -167,5 +174,9 @@ def classify(probes: ProbeResult) -> str:
     if not probes.dns_resolution:
         return "DNS_KO"
     if not probes.gateway_ping:
-        return "OK_GATEWAY_ICMP_BLOCKED"
+        if modem_path_healthy and internet_path_healthy:
+            return "OK_GATEWAY_ICMP_BLOCKED"
+        return "PARTIAL_CONNECTIVITY"
+    if not modem_path_healthy or not internet_path_healthy:
+        return "PARTIAL_CONNECTIVITY"
     return "OK"

@@ -36,8 +36,7 @@ class Harness:
 def test_incident_summary_reads_events_and_coalesces_phases(tmp_path: Path) -> None:
     db_path = tmp_path / "events.sqlite3"
     with sqlite3.connect(db_path) as connection:
-        connection.execute(
-            """
+        connection.execute("""
             CREATE TABLE events(
                 id INTEGER PRIMARY KEY,
                 start_time TEXT NOT NULL,
@@ -47,8 +46,7 @@ def test_incident_summary_reads_events_and_coalesces_phases(tmp_path: Path) -> N
                 severity TEXT,
                 probes_json TEXT NOT NULL
             )
-            """
-        )
+            """)
         connection.executemany(
             """
             INSERT INTO events(

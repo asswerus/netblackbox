@@ -166,6 +166,14 @@ class ProbeRunner:
         )
 
 
+def _measurement_ok(probes: ProbeResult, name: str) -> bool | None:
+    measurement = probes.measurements.get(name)
+    if measurement is None:
+        return None
+    value = measurement.get("ok")
+    return value if isinstance(value, bool) else None
+
+
 def classify(probes: ProbeResult) -> str:
     internet_path_healthy = probes.cloudflare_tcp and probes.google_dns_tcp and probes.http_internet
     modem_path_healthy = probes.modem_ping and probes.modem_http and probes.modem_https
@@ -179,6 +187,14 @@ def classify(probes: ProbeResult) -> str:
     if not probes.internet_reachable:
         return "INTERNET_KO_MODEM_OK"
     if not probes.dns_resolution:
+        public_dns_results = (
+            _measurement_ok(probes, "dns_cloudflare"),
+            _measurement_ok(probes, "dns_google"),
+        )
+        if all(result is False for result in public_dns_results):
+            return "GLOBAL_DNS_FAILURE"
+        if any(result is True for result in public_dns_results):
+            return "SYSTEM_DNS_KO"
         return "DNS_KO"
     if not probes.gateway_ping:
         if modem_path_healthy and internet_path_healthy:

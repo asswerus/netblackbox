@@ -116,8 +116,6 @@ class ProbeRunner:
             "google_dns_tcp",
             "http_internet",
             "dns_resolution",
-            "dns_cloudflare",
-            "dns_google",
         }
         missing = required.difference(self.registry.names())
         if missing:

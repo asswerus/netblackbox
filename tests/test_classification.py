@@ -2,7 +2,11 @@ from netblackbox.models import ProbeResult
 from netblackbox.probes import classify
 
 
-def probes(**overrides: bool) -> ProbeResult:
+def probes(
+    *,
+    measurements: dict[str, dict[str, object]] | None = None,
+    **overrides: bool,
+) -> ProbeResult:
     values = {
         "modem_ping": True,
         "modem_http": True,
@@ -14,7 +18,7 @@ def probes(**overrides: bool) -> ProbeResult:
         "dns_resolution": True,
     }
     values.update(overrides)
-    return ProbeResult(**values)
+    return ProbeResult(**values, measurements=measurements or {})
 
 
 def test_ok() -> None:
@@ -65,8 +69,41 @@ def test_internet_ko_modem_ok() -> None:
     )
 
 
-def test_dns_ko() -> None:
+def test_dns_ko_remains_fallback_without_public_resolver_results() -> None:
     assert classify(probes(dns_resolution=False)) == "DNS_KO"
+
+
+def test_system_dns_ko_when_public_resolver_still_works() -> None:
+    result = probes(
+        dns_resolution=False,
+        measurements={
+            "dns_cloudflare": {"ok": True},
+            "dns_google": {"ok": False},
+        },
+    )
+
+    assert classify(result) == "SYSTEM_DNS_KO"
+
+
+def test_global_dns_failure_when_both_public_resolvers_fail() -> None:
+    result = probes(
+        dns_resolution=False,
+        measurements={
+            "dns_cloudflare": {"ok": False},
+            "dns_google": {"ok": False},
+        },
+    )
+
+    assert classify(result) == "GLOBAL_DNS_FAILURE"
+
+
+def test_dns_ko_fallback_when_public_resolver_result_is_incomplete() -> None:
+    result = probes(
+        dns_resolution=False,
+        measurements={"dns_cloudflare": {"ok": False}},
+    )
+
+    assert classify(result) == "DNS_KO"
 
 
 def test_gateway_may_block_icmp_when_everything_else_is_healthy() -> None:

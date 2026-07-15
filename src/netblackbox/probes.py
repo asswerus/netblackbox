@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib.request import Request, urlopen
 
 from .config import Config
+from .dns_probes import resolve_with_nameserver
 from .models import ProbeResult
 from .platforms import PlatformBackend
 from .plugins import (
@@ -65,6 +66,12 @@ class ProbeRunner:
         except socket.gaierror as exc:
             return Measurement(False, detail=f"{type(exc).__name__}: {exc}")
 
+    def public_dns(self, nameserver: str) -> Measurement:
+        return resolve_with_nameserver(
+            nameserver,
+            timeout_seconds=self.config.socket_timeout_seconds,
+        )
+
     def http(self) -> Measurement:
         started = time.perf_counter()
         try:
@@ -89,6 +96,8 @@ class ProbeRunner:
             FunctionProbePlugin("google_dns_tcp", lambda _ctx: self.tcp("8.8.8.8", 53)),
             FunctionProbePlugin("http_internet", lambda _ctx: self.http()),
             FunctionProbePlugin("dns_resolution", lambda _ctx: self.dns()),
+            FunctionProbePlugin("dns_cloudflare", lambda _ctx: self.public_dns("1.1.1.1")),
+            FunctionProbePlugin("dns_google", lambda _ctx: self.public_dns("8.8.8.8")),
         )
 
     def _default_registry(self) -> ProbeRegistry:

@@ -2,14 +2,32 @@
 
 > Because “everything looks fine from here” is not a diagnosis.
 
-NetBlackBox is a dependency-free, cross-platform network outage recorder and forensic diagnostic toolkit for macOS, Linux, and Windows. It captures intermittent failures that disappear before an ISP support agent can inspect them, preserving what happened before, during, and after each incident.
+NetBlackBox is a lightweight network black box recorder that captures, classifies, and reconstructs connectivity incidents. It preserves what happened before, during, and after intermittent failures that may disappear before an ISP support agent can inspect them.
+
+## Platform support
+
+NetBlackBox is currently developed, installed, and field-tested on **macOS**.
+
+The production installation workflow relies on macOS-specific components, including:
+
+- `launchd`
+- LaunchAgents
+- `~/Library/Application Support`
+
+The probe and diagnostic code includes cross-platform abstractions and the CI matrix covers macOS, Linux, and Windows, but native installation and service management are not yet supported on Linux or Windows.
+
+Planned platform work includes:
+
+- native Linux service integration
+- native Windows service integration
+- a cross-platform installation workflow
 
 ## What it records
 
 - Router reachability over ICMP, HTTP, and HTTPS
 - Upstream gateway reachability
 - Internet reachability over TCP and HTTP
-- DNS resolution failures
+- System, Cloudflare, and Google DNS resolution results
 - Probe latency and plugin-provided measurements
 - Raw observed state and confirmed state
 - Normal, fast, and turbo sampling context
@@ -34,17 +52,22 @@ This captures short transitions without continuously polling at maximum frequenc
 - `MODEM_LAN_KO` — the router is unreachable from the local machine
 - `WAN_GATEWAY_KO` — the router is reachable, but the upstream gateway and Internet are not
 - `INTERNET_KO_MODEM_OK` — the router and upstream gateway respond, but Internet probes fail
-- `DNS_KO` — Internet connectivity works, but DNS resolution fails
+- `SYSTEM_DNS_KO` — the system resolver fails while at least one public resolver works
+- `GLOBAL_DNS_FAILURE` — the system, Cloudflare, and Google resolvers all fail
+- `DNS_KO` — DNS resolution fails but public resolver evidence is unavailable or incomplete
+- `PARTIAL_CONNECTIVITY` — only part of the expected network path is healthy
 - `OK_GATEWAY_ICMP_BLOCKED` — connectivity works although the upstream gateway ignores ICMP
 - `OK` — connectivity is healthy
 
 ## Requirements
 
-- macOS, Linux, or Windows
+- macOS for the supported installation and service workflow
 - Python 3.10 or newer
-- No third-party runtime Python packages
+- Runtime dependencies installed automatically by the package
 
 ## Development install
+
+The Python codebase and test suite can be run on macOS, Linux, or Windows:
 
 ```bash
 git clone https://github.com/asswerus/netblackbox.git
@@ -85,6 +108,7 @@ With the monitor running on the default bind address:
 
 - Current state: `http://127.0.0.1:8080/status`
 - Event summary: `http://127.0.0.1:8080/api/events`
+- Incident summary: `http://127.0.0.1:8080/api/incidents`
 - Event playback JSON: `http://127.0.0.1:8080/api/events/<id>`
 
 The timeline renderer and route adapter are available in the codebase; direct server exposure of `/events/<id>/timeline` is the next integration step.
@@ -116,19 +140,37 @@ They are opt-in through `external_probe_plugins`. Plugin measurements are persis
 
 NetBlackBox runs locally and binds to `127.0.0.1` by default. SQLite data, logs, and diagnostic snapshots may contain local addressing, routing details, public IP information, and other network metadata. Inspect any exported material before sharing it.
 
+## Roadmap
+
+### Monitoring engine
+
+- [x] Persistent event storage
+- [x] Incident engine and phase coalescing
+- [x] Adaptive three-speed sampling
+- [x] Automatic diagnostics
+- [x] Event playback and forensic sample buffering
+- [x] Multi-resolver DNS diagnostics
+- [x] External probe discovery and measurement persistence
+
+### Platform support
+
+- [x] Native macOS LaunchAgent installation
+- [ ] Cross-platform service abstraction
+- [ ] Native Linux service integration
+- [ ] Native Windows service integration
+- [ ] Cross-platform installer
+
+### Future work
+
+- [ ] Web dashboard
+- [ ] Notifications
+- [ ] CSV and JSON export workflows
+- [ ] Multi-host support
+- [ ] Incident coalescing refinements based on field data
+
 ## Project status
 
-The current development line includes:
-
-- cross-platform probe and diagnostic backends
-- forensic sample buffering
-- adaptive three-speed sampling
-- SQLite event playback
-- external probe discovery and measurement persistence
-- interactive HTML event timeline rendering
-- multiplaform CI, linting, formatting, and strict typing gates
-
-The project is under active development; installation and service-management workflows are still being consolidated across operating systems.
+The project is under active development. The monitoring engine is field-tested on macOS; Linux and Windows currently participate in development and CI validation but do not yet have supported native installation or service-management workflows.
 
 ## License
 

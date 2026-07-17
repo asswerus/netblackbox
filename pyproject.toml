@@ -22,7 +22,7 @@ dev = [
 ]
 
 [project.scripts]
-netblackbox = "netblackbox.__main__:main"
+nbb = "netblackbox.__main__:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

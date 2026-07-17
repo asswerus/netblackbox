@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .config import Config, default_data_dir
+from .database_backup import create_database_backup
 from .platforms import current_backend
 from .server_app import IncidentApiApp
 
@@ -21,6 +22,8 @@ def main() -> None:
     args = parser.parse_args()
 
     config = Config.load(args.config)
+    database_path = config.base_dir / "netblackbox.sqlite3"
+    create_database_backup(database_path)
     app = IncidentApiApp(config, current_backend())
 
     if args.summary:

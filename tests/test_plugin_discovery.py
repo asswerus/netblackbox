@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from netblackbox.plugins import Measurement, ProbeContext, discover_probe_plugins
+from nbb.plugins import Measurement, ProbeContext, discover_probe_plugins
 
 
 @dataclass

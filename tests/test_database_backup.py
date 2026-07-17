@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from netblackbox.database_backup import create_database_backup
+from nbb.database_backup import create_database_backup
 
 
 def create_test_database(path: Path, value: str = "preserved") -> None:

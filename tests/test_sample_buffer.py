@@ -2,8 +2,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from netblackbox.buffer import SampleBuffer
-from netblackbox.models import Sample
+from nbb.buffer import SampleBuffer
+from nbb.models import Sample
 
 
 def sample_at(offset_seconds: float) -> Sample:

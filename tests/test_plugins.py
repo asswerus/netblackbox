@@ -1,6 +1,6 @@
 import pytest
 
-from netblackbox.plugins import (
+from nbb.plugins import (
     FunctionProbePlugin,
     Measurement,
     ProbeContext,

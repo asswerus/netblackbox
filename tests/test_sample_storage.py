@@ -2,8 +2,8 @@ import sqlite3
 
 import pytest
 
-from netblackbox.models import Sample
-from netblackbox.sample_storage import (
+from nbb.models import Sample
+from nbb.sample_storage import (
     decode_sample_row,
     ensure_sample_context_columns,
     sample_context_values,

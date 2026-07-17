@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from netblackbox.app import NetBlackBoxApp
-from netblackbox.config import Config
-from netblackbox.models import ProbeResult, Sample
-from netblackbox.platforms import DiagnosticCommand, PlatformBackend
+from nbb.app import NetBlackBoxApp
+from nbb.config import Config
+from nbb.models import ProbeResult, Sample
+from nbb.platforms import DiagnosticCommand, PlatformBackend
 
 
 class FakeBackend(PlatformBackend):

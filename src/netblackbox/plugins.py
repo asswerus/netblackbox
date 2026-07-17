@@ -26,8 +26,7 @@ class ProbePlugin(Protocol):
 
     name: str
 
-    def collect(self, context: ProbeContext) -> Measurement:
-        ...
+    def collect(self, context: ProbeContext) -> Measurement: ...
 
 
 @dataclass(slots=True)
@@ -83,7 +82,7 @@ def _normalise_loaded_plugin(value: object) -> tuple[ProbePlugin, ...]:
     if hasattr(value, "name") and hasattr(value, "collect"):
         return (cast(ProbePlugin, value),)
 
-    if isinstance(value, Iterable) and not isinstance(value, (str, bytes, dict)):
+    if isinstance(value, Iterable) and not isinstance(value, str | bytes | dict):
         plugins = tuple(cast(ProbePlugin, item) for item in value)
         for plugin in plugins:
             if not hasattr(plugin, "name") or not hasattr(plugin, "collect"):

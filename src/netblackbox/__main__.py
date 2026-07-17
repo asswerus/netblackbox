@@ -26,7 +26,9 @@ def main() -> None:
         default=default_data_dir() / "config.json",
         help="Path to the JSON configuration file",
     )
-    parser.add_argument("--summary", action="store_true", help="Print a 30-day event summary and exit")
+    parser.add_argument(
+        "--summary", action="store_true", help="Print a 30-day event summary and exit"
+    )
     parser.add_argument("--output", type=Path, help="Bundle ZIP destination")
     parser.add_argument("--days", type=int, default=30, help="Number of days included in a bundle")
     args = parser.parse_args()

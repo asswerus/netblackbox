@@ -1,7 +1,7 @@
-from netblackbox.config import Config
-from netblackbox.platforms import DiagnosticCommand, PlatformBackend
-from netblackbox.plugins import FunctionProbePlugin, Measurement, ProbeRegistry
-from netblackbox.probes import ProbeRunner
+from nbb.config import Config
+from nbb.platforms import DiagnosticCommand, PlatformBackend
+from nbb.plugins import FunctionProbePlugin, Measurement, ProbeRegistry
+from nbb.probes import ProbeRunner
 
 
 class FakeBackend(PlatformBackend):

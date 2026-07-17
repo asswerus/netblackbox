@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import dns.resolver
 
-from netblackbox.dns_probes import resolve_with_nameserver
+from nbb.dns_probes import resolve_with_nameserver
 
 
 class FakeResolver:

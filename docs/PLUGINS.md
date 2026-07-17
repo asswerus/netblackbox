@@ -5,7 +5,7 @@ NetBlackBox executes network checks through a small plugin contract.
 A probe plugin has a stable name and a `collect()` method:
 
 ```python
-from netblackbox.plugins import Measurement, ProbeContext
+from nbb.plugins import Measurement, ProbeContext
 
 
 class ExampleProbe:

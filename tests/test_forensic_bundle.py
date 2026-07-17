@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from netblackbox.forensic_bundle import create_forensic_bundle
+from nbb.forensic_bundle import create_forensic_bundle
 
 
 def create_database(path: Path) -> None:

@@ -1,5 +1,5 @@
-from netblackbox.models import ProbeResult
-from netblackbox.probes import classify
+from nbb.models import ProbeResult
+from nbb.probes import classify
 
 
 def probes(

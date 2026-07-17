@@ -93,8 +93,7 @@ class NetBlackBoxApp:
 
     def _init_db(self) -> None:
         with self.db() as connection:
-            connection.executescript(
-                """
+            connection.executescript("""
                 PRAGMA journal_mode=WAL;
                 CREATE TABLE IF NOT EXISTS samples(
                     id INTEGER PRIMARY KEY,
@@ -128,8 +127,7 @@ class NetBlackBoxApp:
                 CREATE INDEX IF NOT EXISTS idx_events_start_time ON events(start_time);
                 CREATE INDEX IF NOT EXISTS idx_event_samples_event
                     ON event_samples(event_id, timestamp);
-                """
-            )
+                """)
             columns = {row[1] for row in connection.execute("PRAGMA table_info(events)")}
             migrations = {
                 "severity": "ALTER TABLE events ADD COLUMN severity TEXT",
@@ -220,9 +218,7 @@ class NetBlackBoxApp:
                 (self.timestamp(ended_at), duration, severity_for(state, duration), event_id),
             )
 
-    def collect_diagnostic_snapshot(
-        self, folder: Path, index: int, gateway_ip: str
-    ) -> None:
+    def collect_diagnostic_snapshot(self, folder: Path, index: int, gateway_ip: str) -> None:
         snapshot_dir = folder / f"snapshot_{index:02d}"
         snapshot_dir.mkdir(parents=True, exist_ok=True)
         (snapshot_dir / "captured_at.txt").write_text(self.timestamp(), encoding="utf-8")

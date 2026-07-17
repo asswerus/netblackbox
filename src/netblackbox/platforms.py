@@ -29,8 +29,13 @@ class PlatformBackend:
     @staticmethod
     def run(args: list[str], timeout: int = 5) -> tuple[int, str]:
         try:
-            proc = subprocess.run(args, capture_output=True, text=True, timeout=timeout, check=False)
-            return proc.returncode, (proc.stdout + ("\nSTDERR:\n" + proc.stderr if proc.stderr else "")).strip()
+            proc = subprocess.run(
+                args, capture_output=True, text=True, timeout=timeout, check=False
+            )
+            return (
+                proc.returncode,
+                (proc.stdout + ("\nSTDERR:\n" + proc.stderr if proc.stderr else "")).strip(),
+            )
         except Exception as exc:
             return 125, f"{type(exc).__name__}: {exc}"
 
@@ -56,7 +61,9 @@ class MacOSBackend(PlatformBackend):
             DiagnosticCommand("arp", ["/usr/sbin/arp", "-an"]),
             DiagnosticCommand("dns", ["/usr/sbin/scutil", "--dns"]),
             DiagnosticCommand("interfaces", ["/sbin/ifconfig"]),
-            DiagnosticCommand("traceroute", ["/usr/sbin/traceroute", "-n", "-m", "12", "-w", "1", "1.1.1.1"], 20),
+            DiagnosticCommand(
+                "traceroute", ["/usr/sbin/traceroute", "-n", "-m", "12", "-w", "1", "1.1.1.1"], 20
+            ),
         ]
 
 
@@ -105,8 +112,19 @@ class WindowsBackend(PlatformBackend):
             DiagnosticCommand("ipconfig", ["ipconfig", "/all"]),
             DiagnosticCommand("routes", ["route", "print"]),
             DiagnosticCommand("arp", ["arp", "-a"]),
-            DiagnosticCommand("net_ip_configuration", ["powershell", "-NoProfile", "-Command", "Get-NetIPConfiguration | Format-List *"]),
-            DiagnosticCommand("dns_servers", ["powershell", "-NoProfile", "-Command", "Get-DnsClientServerAddress | Format-Table -AutoSize"]),
+            DiagnosticCommand(
+                "net_ip_configuration",
+                ["powershell", "-NoProfile", "-Command", "Get-NetIPConfiguration | Format-List *"],
+            ),
+            DiagnosticCommand(
+                "dns_servers",
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    "Get-DnsClientServerAddress | Format-Table -AutoSize",
+                ],
+            ),
             DiagnosticCommand("tracert", ["tracert", "-d", "-h", "12", "1.1.1.1"], 30),
         ]
 

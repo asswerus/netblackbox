@@ -20,7 +20,8 @@ Use `"*"` to enable every installed provider. Explicit names are recommended for
 
 ```python
 from dataclasses import dataclass
-from netblackbox.plugins import Measurement, ProbeContext
+from nbb.plugins import Measurement, ProbeContext
+
 
 @dataclass
 class ExampleProbe:
@@ -32,6 +33,7 @@ class ExampleProbe:
             latency_ms=1.2,
             detail=f"modem={context.modem_ip}",
         )
+
 
 probe = ExampleProbe()
 ```

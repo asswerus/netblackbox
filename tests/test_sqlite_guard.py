@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from netblackbox.sqlite_guard import install_sqlite_connection_guard
+from nbb.sqlite_guard import install_sqlite_connection_guard
 
 
 def test_connection_context_closes_database(tmp_path) -> None:

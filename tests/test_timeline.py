@@ -1,4 +1,4 @@
-from netblackbox.timeline import render_event_timeline
+from nbb.timeline import render_event_timeline
 
 
 def test_timeline_renders_event_and_enriched_samples() -> None:

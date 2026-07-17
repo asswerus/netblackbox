@@ -1,6 +1,7 @@
 import sqlite3
 
 import pytest
+
 from netblackbox.models import Sample
 from netblackbox.sample_storage import (
     decode_sample_row,

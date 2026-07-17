@@ -1,6 +1,7 @@
 import sqlite3
 
 import pytest
+
 from netblackbox.sqlite_guard import install_sqlite_connection_guard
 
 

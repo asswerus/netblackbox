@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+
 from netblackbox.forensic_bundle import create_forensic_bundle
 
 

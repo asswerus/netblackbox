@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import dns.resolver
+
 from netblackbox.dns_probes import resolve_with_nameserver
 
 

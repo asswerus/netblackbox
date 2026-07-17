@@ -1,4 +1,5 @@
 import pytest
+
 from netblackbox.sampling import AdaptiveSamplingPolicy
 
 

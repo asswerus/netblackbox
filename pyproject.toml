@@ -14,7 +14,7 @@ dependencies = ["dnspython>=2.7"]
 
 [project.optional-dependencies]
 dev = [
-  "black>=24.10",
+  "black==26.5.1",
   "mypy>=1.14",
   "pre-commit>=4.0",
   "pytest>=8.3",

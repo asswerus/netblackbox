@@ -13,8 +13,7 @@ from netblackbox.forensic_bundle import create_forensic_bundle
 
 def create_database(path: Path) -> None:
     with sqlite3.connect(path) as connection:
-        connection.executescript(
-            """
+        connection.executescript("""
             CREATE TABLE events(
                 id INTEGER PRIMARY KEY,
                 start_time TEXT NOT NULL,
@@ -48,8 +47,7 @@ def create_database(path: Path) -> None:
                 7, '2026-07-16T12:00:01+00:00', 'active',
                 'PARTIAL_CONNECTIVITY', '192.168.1.1', '{}'
             );
-            """
-        )
+            """)
 
 
 def test_bundle_contains_stable_analysis_files(tmp_path: Path) -> None:

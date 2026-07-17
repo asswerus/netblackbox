@@ -31,9 +31,11 @@ def create_database_backup(
     destination = destination_dir / f"{database_path.stem}-{timestamp}{database_path.suffix}"
 
     source_uri = f"file:{database_path.resolve()}?mode=ro"
-    with sqlite3.connect(source_uri, uri=True, timeout=10) as source:
-        with sqlite3.connect(destination, timeout=10) as target:
-            source.backup(target)
+    with (
+        sqlite3.connect(source_uri, uri=True, timeout=10) as source,
+        sqlite3.connect(destination, timeout=10) as target,
+    ):
+        source.backup(target)
 
     backups = sorted(
         destination_dir.glob(f"{database_path.stem}-*{database_path.suffix}"),

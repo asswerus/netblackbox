@@ -132,7 +132,9 @@ def create_forensic_bundle(
 
     exports_dir = base_dir / "exports"
     exports_dir.mkdir(parents=True, exist_ok=True)
-    destination = output_path or exports_dir / f"netblackbox-{generated.strftime('%Y%m%d-%H%M%S')}.zip"
+    destination = (
+        output_path or exports_dir / f"netblackbox-{generated.strftime('%Y%m%d-%H%M%S')}.zip"
+    )
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="netblackbox-bundle-") as temporary:

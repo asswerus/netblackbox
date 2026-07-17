@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -10,6 +11,8 @@ def default_data_dir() -> Path:
     if os.name == "nt":
         root = os.environ.get("LOCALAPPDATA") or str(Path.home())
         return Path(root) / "NetBlackBox"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "NetBlackBox"
     return Path.home() / ".local" / "share" / "netblackbox"
 
 

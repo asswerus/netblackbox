@@ -7,11 +7,13 @@ repos:
     hooks:
       - id: black
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.10
+  - repo: local
     hooks:
       - id: ruff
-        args: [--fix]
+        name: ruff
+        entry: python -m ruff check src tests
+        language: system
+        pass_filenames: false
 
   - repo: local
     hooks:

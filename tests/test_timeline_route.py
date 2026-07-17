@@ -1,4 +1,4 @@
-from nbb.timeline_route import event_timeline_response
+from netblackbox.timeline_route import event_timeline_response
 
 
 def playback(event_id: int) -> dict[str, object]:

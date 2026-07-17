@@ -1,4 +1,4 @@
-from nbb.incident_summary import build_incident_summary
+from netblackbox.incident_summary import build_incident_summary
 
 
 def event(

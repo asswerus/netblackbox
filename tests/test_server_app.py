@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
-from nbb.server_app import IncidentApiApp
+from netblackbox.server_app import IncidentApiApp
 
 
 class Harness:

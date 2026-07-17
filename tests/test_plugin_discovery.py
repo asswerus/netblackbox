@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-from nbb.plugins import Measurement, ProbeContext, discover_probe_plugins
+from netblackbox.plugins import Measurement, ProbeContext, discover_probe_plugins
 
 
 @dataclass

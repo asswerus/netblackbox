@@ -1,5 +1,5 @@
-from nbb.app import severity_for
-from nbb.models import ProbeResult
+from netblackbox.app import severity_for
+from netblackbox.models import ProbeResult
 
 
 def test_probe_result_exposes_latency_without_breaking_boolean_state() -> None:

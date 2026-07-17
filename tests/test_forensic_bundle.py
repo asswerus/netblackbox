@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
-from nbb.forensic_bundle import create_forensic_bundle
+from netblackbox.forensic_bundle import create_forensic_bundle
 
 
 def create_database(path: Path) -> None:

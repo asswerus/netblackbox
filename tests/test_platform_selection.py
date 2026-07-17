@@ -1,4 +1,4 @@
-from nbb.platforms import LinuxBackend, MacOSBackend, WindowsBackend
+from netblackbox.platforms import LinuxBackend, MacOSBackend, WindowsBackend
 
 
 def test_backend_names() -> None:

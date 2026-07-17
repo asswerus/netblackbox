@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from nbb.incidents_route import incidents_response
+from netblackbox.incidents_route import incidents_response
 
 
 def test_incidents_route_returns_json_payload() -> None:

@@ -1,4 +1,4 @@
-from nbb.incidents import coalesce_events
+from netblackbox.incidents import coalesce_events
 
 
 def event(

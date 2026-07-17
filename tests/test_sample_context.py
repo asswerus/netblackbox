@@ -1,6 +1,6 @@
 from dataclasses import asdict
 
-from nbb.models import Sample
+from netblackbox.models import Sample
 
 
 def test_sample_context_defaults_preserve_existing_callers() -> None:

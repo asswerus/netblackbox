@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from nbb.config import Config
-from nbb.sampling import policy_from_config
+from netblackbox.config import Config
+from netblackbox.sampling import policy_from_config
 
 
 def test_policy_uses_runtime_configuration(tmp_path: Path) -> None:

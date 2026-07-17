@@ -1,5 +1,5 @@
 import pytest
-from nbb.sampling import AdaptiveSamplingPolicy
+from netblackbox.sampling import AdaptiveSamplingPolicy
 
 
 def policy() -> AdaptiveSamplingPolicy:

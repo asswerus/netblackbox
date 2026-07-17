@@ -1,7 +1,6 @@
 import sqlite3
 
 import pytest
-
 from nbb.sqlite_guard import install_sqlite_connection_guard
 
 

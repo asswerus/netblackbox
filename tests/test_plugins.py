@@ -1,5 +1,4 @@
 import pytest
-
 from nbb.plugins import (
     FunctionProbePlugin,
     Measurement,

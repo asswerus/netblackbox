@@ -1,5 +1,4 @@
 import pytest
-
 from nbb.sampling import AdaptiveSamplingPolicy
 
 

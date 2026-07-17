@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
-
 from nbb.buffer import SampleBuffer
 from nbb.models import Sample
 

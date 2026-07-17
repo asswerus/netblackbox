@@ -1,7 +1,6 @@
 import sqlite3
 
 import pytest
-
 from nbb.models import Sample
 from nbb.sample_storage import (
     decode_sample_row,

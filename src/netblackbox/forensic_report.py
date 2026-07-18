@@ -25,8 +25,8 @@ def _bars(values: dict[str, Any], *, empty_message: str) -> str:
             '<div class="bar-row">'
             f'<span class="bar-label">{_escape(label)}</span>'
             f'<span class="bar-track"><span class="bar-fill" style="width:{width}%"></span></span>'
-            f'<strong>{value}</strong>'
-            '</div>'
+            f"<strong>{value}</strong>"
+            "</div>"
         )
     return "".join(rows)
 
@@ -51,12 +51,13 @@ def render_forensic_report(
             f'<td><a href="playback/{html.escape(str(event_id), quote=True)}.json">Playback</a></td>'
             "</tr>"
         )
-    event_rows = "".join(rows) or '<tr><td colspan="7" class="muted">No events in this bundle window.</td></tr>'
+    event_rows = (
+        "".join(rows)
+        or '<tr><td colspan="7" class="muted">No events in this bundle window.</td></tr>'
+    )
 
     by_hour = {
-        hour: count
-        for hour, count in incidents.get("by_hour", {}).items()
-        if int(count) > 0
+        hour: count for hour, count in incidents.get("by_hour", {}).items() if int(count) > 0
     }
     database = metadata.get("database", {})
     timezone = metadata.get("timezone", {})
@@ -86,29 +87,29 @@ th,td{{padding:.65rem;border-bottom:1px solid var(--border);text-align:left;vert
 </style>
 </head>
 <body><main>
-<header><h1>NetBlackBox forensic bundle</h1><p class="subtitle">Generated {_escape(summary.get('generated_at'))}</p></header>
+<header><h1>NetBlackBox forensic bundle</h1><p class="subtitle">Generated {_escape(summary.get("generated_at"))}</p></header>
 <section class="grid" aria-label="Bundle overview">
-<div class="card"><span>Events</span><strong>{summary.get('event_count', 0)}</strong></div>
+<div class="card"><span>Events</span><strong>{summary.get("event_count", 0)}</strong></div>
 <div class="card"><span>Incidents</span><strong>{incident_count}</strong></div>
-<div class="card"><span>Total event duration</span><strong>{summary.get('total_duration_seconds', 0)} s</strong></div>
-<div class="card"><span>Longest event</span><strong>{summary.get('longest_duration_seconds', 0)} s</strong></div>
-<div class="card"><span>Window</span><strong>{metadata.get('window_days', '')} days</strong></div>
-<div class="card"><span>Platform</span><strong>{_escape(metadata.get('platform'))}</strong></div>
+<div class="card"><span>Total event duration</span><strong>{summary.get("total_duration_seconds", 0)} s</strong></div>
+<div class="card"><span>Longest event</span><strong>{summary.get("longest_duration_seconds", 0)} s</strong></div>
+<div class="card"><span>Window</span><strong>{metadata.get("window_days", "")} days</strong></div>
+<div class="card"><span>Platform</span><strong>{_escape(metadata.get("platform"))}</strong></div>
 </section>
 <section class="split">
-<div class="panel"><h2>Events by state</h2>{_bars(summary.get('by_state', {}), empty_message='No state data.')}</div>
-<div class="panel"><h2>Events by severity</h2>{_bars(summary.get('by_severity', {}), empty_message='No severity data.')}</div>
+<div class="panel"><h2>Events by state</h2>{_bars(summary.get("by_state", {}), empty_message="No state data.")}</div>
+<div class="panel"><h2>Events by severity</h2>{_bars(summary.get("by_severity", {}), empty_message="No severity data.")}</div>
 </section>
-<section class="panel"><h2>Incidents by hour</h2>{_bars(by_hour, empty_message='No incidents in this bundle window.')}</section>
+<section class="panel"><h2>Incidents by hour</h2>{_bars(by_hour, empty_message="No incidents in this bundle window.")}</section>
 <section class="panel"><h2>Events</h2><div class="table-wrap"><table>
 <thead><tr><th>ID</th><th>Start</th><th>End</th><th>State</th><th>Severity</th><th>Duration (s)</th><th>Details</th></tr></thead>
 <tbody>{event_rows}</tbody></table></div></section>
 <section class="panel"><h2>Bundle information</h2><dl>
-<dt>NetBlackBox version</dt><dd>{_escape(metadata.get('netblackbox_version'))}</dd>
-<dt>Bundle version</dt><dd>{_escape(metadata.get('bundle_version'))}</dd>
-<dt>Hostname</dt><dd>{_escape(metadata.get('hostname'))}</dd>
-<dt>Timezone</dt><dd>{_escape(timezone.get('name'))} ({_escape(timezone.get('utc_offset'))})</dd>
-<dt>Database</dt><dd>{_escape(database.get('filename'))}</dd>
-<dt>Database SHA-256</dt><dd><code>{_escape(database.get('sha256'))}</code></dd>
+<dt>NetBlackBox version</dt><dd>{_escape(metadata.get("netblackbox_version"))}</dd>
+<dt>Bundle version</dt><dd>{_escape(metadata.get("bundle_version"))}</dd>
+<dt>Hostname</dt><dd>{_escape(metadata.get("hostname"))}</dd>
+<dt>Timezone</dt><dd>{_escape(timezone.get("name"))} ({_escape(timezone.get("utc_offset"))})</dd>
+<dt>Database</dt><dd>{_escape(database.get("filename"))}</dd>
+<dt>Database SHA-256</dt><dd><code>{_escape(database.get("sha256"))}</code></dd>
 </dl></section>
 </main></body></html>"""

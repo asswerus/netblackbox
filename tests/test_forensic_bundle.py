@@ -129,20 +129,14 @@ def test_bundle_contains_stable_analysis_files(tmp_path: Path) -> None:
         summary = json.loads(archive.read("summary.json"))
         assert summary["event_count"] == 1
         assert summary["longest_duration_seconds"] == 8.0
-        assert summary["events"][0]["probes"] == {
-            "dns": {"ok": True, "latency_ms": 12.5}
-        }
+        assert summary["events"][0]["probes"] == {"dns": {"ok": True, "latency_ms": 12.5}}
         assert "probes_json" not in summary["events"][0]
 
         playback = json.loads(archive.read("playback/7.json"))
         assert playback["event"]["id"] == 7
-        assert playback["event"]["probes"] == {
-            "dns": {"ok": True, "latency_ms": 12.5}
-        }
+        assert playback["event"]["probes"] == {"dns": {"ok": True, "latency_ms": 12.5}}
         assert len(playback["samples"]) == 1
-        assert playback["samples"][0]["probes"] == {
-            "gateway": {"reachable": True}
-        }
+        assert playback["samples"][0]["probes"] == {"gateway": {"reachable": True}}
         assert "probes_json" not in playback["samples"][0]
 
         extracted = tmp_path / "snapshot.sqlite3"

@@ -41,13 +41,15 @@ def create_database(path: Path) -> None:
                 id, start_time, end_time, duration_seconds, state, severity, probes_json
             ) VALUES(
                 7, '2026-07-16T12:00:00+00:00', '2026-07-16T12:00:08+00:00',
-                8.0, 'PARTIAL_CONNECTIVITY', 'WARNING', '{}'
+                8.0, 'PARTIAL_CONNECTIVITY', 'WARNING',
+                '{"dns":{"ok":true,"latency_ms":12.5}}'
             );
             INSERT INTO event_samples(
                 event_id, timestamp, phase, state, gateway_ip, probes_json
             ) VALUES(
                 7, '2026-07-16T12:00:01+00:00', 'active',
-                'PARTIAL_CONNECTIVITY', '192.168.1.1', '{}'
+                'PARTIAL_CONNECTIVITY', '192.168.1.1',
+                '{"gateway":{"reachable":true}}'
             );
             """)
 
@@ -127,15 +129,42 @@ def test_bundle_contains_stable_analysis_files(tmp_path: Path) -> None:
         summary = json.loads(archive.read("summary.json"))
         assert summary["event_count"] == 1
         assert summary["longest_duration_seconds"] == 8.0
+        assert summary["events"][0]["probes"] == {
+            "dns": {"ok": True, "latency_ms": 12.5}
+        }
+        assert "probes_json" not in summary["events"][0]
 
         playback = json.loads(archive.read("playback/7.json"))
         assert playback["event"]["id"] == 7
+        assert playback["event"]["probes"] == {
+            "dns": {"ok": True, "latency_ms": 12.5}
+        }
         assert len(playback["samples"]) == 1
+        assert playback["samples"][0]["probes"] == {
+            "gateway": {"reachable": True}
+        }
+        assert "probes_json" not in playback["samples"][0]
 
         extracted = tmp_path / "snapshot.sqlite3"
         extracted.write_bytes(database_bytes)
         with sqlite3.connect(extracted) as connection:
             assert connection.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 1
+
+
+def test_bundle_marks_malformed_probe_payloads_without_failing(tmp_path: Path) -> None:
+    database = tmp_path / "netblackbox.sqlite3"
+    create_database(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("UPDATE events SET probes_json='not-json' WHERE id=7")
+
+    destination = create_forensic_bundle(tmp_path)
+
+    with zipfile.ZipFile(destination) as archive:
+        event = json.loads(archive.read("summary.json"))["events"][0]
+
+    assert event["probes"] is None
+    assert event["warnings"] == ["Unable to decode probes_json"]
+    assert "probes_json" not in event
 
 
 def test_bundle_excludes_os_metadata_and_temporary_files(tmp_path: Path) -> None:

@@ -17,6 +17,7 @@ from typing import Any
 from .incident_summary import build_incident_summary
 
 BUNDLE_VERSION = 1
+MANIFEST_VERSION = 1
 EXCLUDED_ARCHIVE_NAMES = {
     ".directory",
     ".ds_store",
@@ -107,6 +108,32 @@ def _build_metadata(
             "format": "zip",
             "compression": "zip-deflated",
         },
+    }
+
+
+def _build_manifest(root: Path, generated_at: str) -> dict[str, Any]:
+    files: dict[str, dict[str, Any]] = {}
+    total_size = 0
+
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root)
+        if not path.is_file() or not should_archive(relative) or relative == Path("manifest.json"):
+            continue
+        size = path.stat().st_size
+        total_size += size
+        files[relative.as_posix()] = {
+            "size_bytes": size,
+            "sha256": _sha256(path),
+        }
+
+    return {
+        "manifest_version": MANIFEST_VERSION,
+        "generated_at": generated_at,
+        "hash_algorithm": "sha256",
+        "manifest_includes_itself": False,
+        "file_count": len(files),
+        "total_size_bytes": total_size,
+        "files": files,
     }
 
 
@@ -247,6 +274,9 @@ def create_forensic_bundle(
             source = base_dir / name
             if source.is_dir():
                 shutil.copytree(source, root / name)
+
+        manifest = _build_manifest(root, generated_at)
+        (root / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
         with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for path in sorted(root.rglob("*")):

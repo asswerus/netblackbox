@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import html
 import json
+import platform as platform_module
 import shutil
+import socket
 import sqlite3
 import tempfile
 import zipfile
@@ -41,6 +44,70 @@ def _package_version() -> str:
         return version("netblackbox")
     except PackageNotFoundError:
         return "development"
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _database_schema_version(database_path: Path) -> int:
+    with sqlite3.connect(database_path) as connection:
+        return int(connection.execute("PRAGMA user_version").fetchone()[0])
+
+
+def _utc_offset(value: datetime) -> str | None:
+    offset = value.utcoffset()
+    if offset is None:
+        return None
+    total_minutes = int(offset.total_seconds() // 60)
+    sign = "+" if total_minutes >= 0 else "-"
+    hours, minutes = divmod(abs(total_minutes), 60)
+    return f"{sign}{hours:02d}:{minutes:02d}"
+
+
+def _build_metadata(
+    *,
+    snapshot: Path,
+    generated: datetime,
+    generated_at: str,
+    platform: str,
+    days: int,
+) -> dict[str, Any]:
+    return {
+        "bundle_version": BUNDLE_VERSION,
+        "netblackbox_version": _package_version(),
+        "created_with": "nbb bundle",
+        "generated_at": generated_at,
+        "platform": platform,
+        "window_days": days,
+        "database_filename": snapshot.name,
+        "hostname": socket.gethostname(),
+        "timezone": {
+            "name": generated.tzname(),
+            "utc_offset": _utc_offset(generated),
+        },
+        "os": {
+            "system": platform_module.system(),
+            "release": platform_module.release(),
+            "version": platform_module.version(),
+            "machine": platform_module.machine(),
+            "python": platform_module.python_version(),
+        },
+        "database": {
+            "filename": snapshot.name,
+            "size_bytes": snapshot.stat().st_size,
+            "sha256": _sha256(snapshot),
+            "schema_version": _database_schema_version(snapshot),
+        },
+        "bundle": {
+            "format": "zip",
+            "compression": "zip-deflated",
+        },
+    }
 
 
 def _snapshot_database(source: Path, destination: Path) -> None:
@@ -162,14 +229,13 @@ def create_forensic_bundle(
         events = _read_events(snapshot, cutoff)
         summary = _event_summary(events, generated_at)
         incidents = build_incident_summary(events, generated_at=generated_at, platform=platform)
-        metadata = {
-            "bundle_version": BUNDLE_VERSION,
-            "netblackbox_version": _package_version(),
-            "generated_at": generated_at,
-            "platform": platform,
-            "window_days": days,
-            "database_filename": database_path.name,
-        }
+        metadata = _build_metadata(
+            snapshot=snapshot,
+            generated=generated,
+            generated_at=generated_at,
+            platform=platform,
+            days=days,
+        )
 
         (root / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
         (root / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")

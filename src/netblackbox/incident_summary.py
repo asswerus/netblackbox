@@ -6,7 +6,9 @@ from typing import Any
 from .incidents import coalesce_events
 
 
-def _artifact_references(event_ids: list[Any], events_by_id: dict[Any, dict[str, Any]]) -> dict[str, Any]:
+def _artifact_references(
+    event_ids: list[Any], events_by_id: dict[Any, dict[str, Any]]
+) -> dict[str, Any]:
     playback_files: list[str] = []
     diagnostics: list[dict[str, Any]] = []
 

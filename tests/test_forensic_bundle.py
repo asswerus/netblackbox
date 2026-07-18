@@ -98,7 +98,7 @@ def test_bundle_contains_stable_analysis_files(tmp_path: Path) -> None:
         }
 
         readme = archive.read("README.txt").decode("utf-8")
-        assert readme.startswith("NetBlackBox Forensic Bundle\n")
+        assert readme.splitlines()[0] == "NetBlackBox Forensic Bundle"
         assert "Generated:          2026-07-17T10:30:00.000+00:00" in readme
         assert "Platform backend:   test-platform" in readme
         assert "Window:             30 days" in readme

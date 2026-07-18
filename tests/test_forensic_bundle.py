@@ -68,6 +68,7 @@ def test_bundle_contains_stable_analysis_files(tmp_path: Path) -> None:
         assert {
             "database.sqlite3",
             "metadata.json",
+            "manifest.json",
             "summary.json",
             "incidents.json",
             "report.html",
@@ -94,6 +95,23 @@ def test_bundle_contains_stable_analysis_files(tmp_path: Path) -> None:
             "sha256": hashlib.sha256(database_bytes).hexdigest(),
             "schema_version": 3,
         }
+
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["manifest_version"] == 1
+        assert manifest["generated_at"] == "2026-07-17T10:30:00.000+00:00"
+        assert manifest["hash_algorithm"] == "sha256"
+        assert manifest["manifest_includes_itself"] is False
+        assert set(manifest["files"]) == names - {"manifest.json"}
+        assert manifest["file_count"] == len(names) - 1
+        assert manifest["total_size_bytes"] == sum(
+            entry["size_bytes"] for entry in manifest["files"].values()
+        )
+        for name, entry in manifest["files"].items():
+            content = archive.read(name)
+            assert entry == {
+                "size_bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest(),
+            }
 
         summary = json.loads(archive.read("summary.json"))
         assert summary["event_count"] == 1
@@ -124,13 +142,15 @@ def test_bundle_excludes_os_metadata_and_temporary_files(tmp_path: Path) -> None
 
     with zipfile.ZipFile(destination) as archive:
         names = set(archive.namelist())
+        manifest = json.loads(archive.read("manifest.json"))
 
     assert "diagnostics/snapshot.json" in names
+    assert "diagnostics/snapshot.json" in manifest["files"]
     assert not any(
         name.casefold().endswith((".ds_store", "thumbs.db", "desktop.ini", ".directory"))
         or "__macosx" in name.casefold()
         or name.endswith("~")
-        for name in names
+        for name in names | set(manifest["files"])
     )
 
 

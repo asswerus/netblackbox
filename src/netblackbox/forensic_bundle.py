@@ -14,6 +14,22 @@ from typing import Any
 from .incident_summary import build_incident_summary
 
 BUNDLE_VERSION = 1
+EXCLUDED_ARCHIVE_NAMES = {
+    ".directory",
+    ".ds_store",
+    "desktop.ini",
+    "thumbs.db",
+}
+EXCLUDED_ARCHIVE_PARTS = {"__macosx"}
+
+
+def should_archive(path: Path) -> bool:
+    """Return whether a file belongs in a portable forensic archive."""
+    if path.name.casefold() in EXCLUDED_ARCHIVE_NAMES:
+        return False
+    if path.name.endswith("~"):
+        return False
+    return not any(part.casefold() in EXCLUDED_ARCHIVE_PARTS for part in path.parts)
 
 
 def _timestamp(value: datetime | None = None) -> str:
@@ -168,7 +184,7 @@ def create_forensic_bundle(
 
         with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for path in sorted(root.rglob("*")):
-                if path.is_file():
+                if path.is_file() and should_archive(path.relative_to(root)):
                     archive.write(path, path.relative_to(root))
 
     return destination

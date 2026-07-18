@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import zipfile
@@ -14,6 +15,7 @@ from netblackbox.forensic_bundle import create_forensic_bundle
 def create_database(path: Path) -> None:
     with sqlite3.connect(path) as connection:
         connection.executescript("""
+            PRAGMA user_version = 3;
             CREATE TABLE events(
                 id INTEGER PRIMARY KEY,
                 start_time TEXT NOT NULL,
@@ -73,9 +75,25 @@ def test_bundle_contains_stable_analysis_files(tmp_path: Path) -> None:
             "logs/netblackbox.log",
         } <= names
 
+        database_bytes = archive.read("database.sqlite3")
         metadata = json.loads(archive.read("metadata.json"))
         assert metadata["bundle_version"] == 1
         assert metadata["platform"] == "test-platform"
+        assert metadata["created_with"] == "nbb bundle"
+        assert metadata["hostname"]
+        assert metadata["timezone"] == {"name": "UTC", "utc_offset": "+00:00"}
+        assert metadata["bundle"] == {
+            "format": "zip",
+            "compression": "zip-deflated",
+        }
+        assert metadata["os"]["system"]
+        assert metadata["os"]["python"]
+        assert metadata["database"] == {
+            "filename": "database.sqlite3",
+            "size_bytes": len(database_bytes),
+            "sha256": hashlib.sha256(database_bytes).hexdigest(),
+            "schema_version": 3,
+        }
 
         summary = json.loads(archive.read("summary.json"))
         assert summary["event_count"] == 1
@@ -86,7 +104,7 @@ def test_bundle_contains_stable_analysis_files(tmp_path: Path) -> None:
         assert len(playback["samples"]) == 1
 
         extracted = tmp_path / "snapshot.sqlite3"
-        extracted.write_bytes(archive.read("database.sqlite3"))
+        extracted.write_bytes(database_bytes)
         with sqlite3.connect(extracted) as connection:
             assert connection.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 1
 

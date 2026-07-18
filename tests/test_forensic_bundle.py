@@ -91,6 +91,31 @@ def test_bundle_contains_stable_analysis_files(tmp_path: Path) -> None:
             assert connection.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 1
 
 
+def test_bundle_excludes_os_metadata_and_temporary_files(tmp_path: Path) -> None:
+    create_database(tmp_path / "netblackbox.sqlite3")
+    diagnostics = tmp_path / "diagnostics"
+    diagnostics.mkdir()
+    (diagnostics / "snapshot.json").write_text("{}", encoding="utf-8")
+    for name in (".DS_Store", "Thumbs.db", "desktop.ini", ".directory", "notes.txt~"):
+        (diagnostics / name).write_text("noise", encoding="utf-8")
+    macosx = diagnostics / "__MACOSX"
+    macosx.mkdir()
+    (macosx / "snapshot.json").write_text("noise", encoding="utf-8")
+
+    destination = create_forensic_bundle(tmp_path)
+
+    with zipfile.ZipFile(destination) as archive:
+        names = set(archive.namelist())
+
+    assert "diagnostics/snapshot.json" in names
+    assert not any(
+        name.casefold().endswith((".ds_store", "thumbs.db", "desktop.ini", ".directory"))
+        or "__macosx" in name.casefold()
+        or name.endswith("~")
+        for name in names
+    )
+
+
 def test_bundle_requires_an_existing_database(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         create_forensic_bundle(tmp_path)

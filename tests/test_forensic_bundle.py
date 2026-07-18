@@ -66,6 +66,7 @@ def test_bundle_contains_stable_analysis_files(tmp_path: Path) -> None:
     with zipfile.ZipFile(destination) as archive:
         names = set(archive.namelist())
         assert {
+            "README.txt",
             "database.sqlite3",
             "metadata.json",
             "manifest.json",
@@ -95,6 +96,16 @@ def test_bundle_contains_stable_analysis_files(tmp_path: Path) -> None:
             "sha256": hashlib.sha256(database_bytes).hexdigest(),
             "schema_version": 3,
         }
+
+        readme = archive.read("README.txt").decode("utf-8")
+        assert readme.startswith("NetBlackBox Forensic Bundle\n")
+        assert "Generated:          2026-07-17T10:30:00.000+00:00" in readme
+        assert "Platform backend:   test-platform" in readme
+        assert "Window:             30 days" in readme
+        assert "Events:             1" in readme
+        assert "Incidents:          1" in readme
+        assert "Start with report.html" in readme
+        assert "Inspect it before sharing it with others." in readme
 
         manifest = json.loads(archive.read("manifest.json"))
         assert manifest["manifest_version"] == 1

@@ -5,6 +5,8 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from .bundle_verifier import render_verification, verify_bundle
+
 REQUIRED_ANALYSIS_FILES = {"metadata.json", "summary.json", "incidents.json"}
 
 
@@ -80,5 +82,11 @@ def render_bundle_analysis(analysis: dict[str, Any]) -> str:
 
 
 def analyze_bundle(bundle_path: Path) -> str:
-    """Read and render an offline forensic bundle."""
-    return render_bundle_analysis(read_bundle_analysis(bundle_path))
+    """Verify, read, and render an offline forensic bundle."""
+    try:
+        integrity = render_verification(verify_bundle(bundle_path))
+    except ValueError as error:
+        integrity = "Bundle integrity\n----------------\nUNAVAILABLE: " + str(error)
+
+    analysis = render_bundle_analysis(read_bundle_analysis(bundle_path))
+    return f"{integrity}\n\n{analysis}"

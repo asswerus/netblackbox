@@ -90,3 +90,14 @@ def verify_bundle(bundle_path: Path) -> VerificationResult:
             )
     except zipfile.BadZipFile as error:
         raise ValueError(f"not a valid ZIP bundle: {bundle_path}") from error
+
+
+def render_verification(result: VerificationResult) -> str:
+    """Render a deterministic terminal summary of an integrity check."""
+    lines = ["Bundle integrity", "----------------"]
+    lines.extend(f"[OK]         {name}" for name in result.verified)
+    lines.extend(f"[MODIFIED]   {name}" for name in result.modified)
+    lines.extend(f"[MISSING]    {name}" for name in result.missing)
+    lines.extend(f"[UNEXPECTED] {name}" for name in result.unexpected)
+    lines.extend(["", f"Result: {'VERIFIED' if result.is_valid else 'FAILED'}"])
+    return "\n".join(lines)

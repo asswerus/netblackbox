@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+from .bundle_analysis import analyze_bundle
 from .config import Config, default_data_dir
 from .database_backup import create_database_backup
 from .forensic_bundle import create_forensic_bundle
@@ -16,9 +17,15 @@ def main() -> None:
     parser.add_argument(
         "command",
         nargs="?",
-        choices=("run", "bundle"),
+        choices=("run", "bundle", "analyze"),
         default="run",
-        help="Run the monitor or create an offline forensic bundle",
+        help="Run the monitor, create a forensic bundle, or analyze one offline",
+    )
+    parser.add_argument(
+        "bundle_path",
+        nargs="?",
+        type=Path,
+        help="Forensic bundle ZIP to analyze",
     )
     parser.add_argument(
         "--config",
@@ -32,6 +39,15 @@ def main() -> None:
     parser.add_argument("--output", type=Path, help="Bundle ZIP destination")
     parser.add_argument("--days", type=int, default=30, help="Number of days included in a bundle")
     args = parser.parse_args()
+
+    if args.command == "analyze":
+        if args.bundle_path is None:
+            parser.error("analyze requires a bundle ZIP path")
+        print(analyze_bundle(args.bundle_path))
+        return
+
+    if args.bundle_path is not None:
+        parser.error("bundle_path is only valid with the analyze command")
 
     config = Config.load(args.config)
     database_path = config.base_dir / "netblackbox.sqlite3"

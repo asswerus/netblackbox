@@ -5,7 +5,6 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-
 REQUIRED_ANALYSIS_FILES = {"metadata.json", "summary.json", "incidents.json"}
 
 

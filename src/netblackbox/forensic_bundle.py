@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import html
 import json
 import platform as platform_module
 import shutil
@@ -14,6 +13,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
+from .forensic_report import render_forensic_report
 from .incident_summary import build_incident_summary
 
 BUNDLE_VERSION = 1
@@ -287,28 +287,6 @@ def _event_summary(events: list[dict[str, Any]], generated_at: str) -> dict[str,
     }
 
 
-def _render_report(summary: dict[str, Any], incidents: dict[str, Any]) -> str:
-    rows = "".join(
-        "<tr>"
-        f"<td>{html.escape(str(event.get('start_time', '')))}</td>"
-        f"<td>{html.escape(str(event.get('state', '')))}</td>"
-        f"<td>{html.escape(str(event.get('severity', '')))}</td>"
-        f"<td>{html.escape(str(event.get('duration_seconds', '')))}</td>"
-        "</tr>"
-        for event in summary["events"]
-    )
-    incident_count = incidents.get("incident_count", len(incidents.get("incidents", [])))
-    return f"""<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><title>NetBlackBox forensic bundle</title>
-<style>body{{font-family:system-ui;margin:2rem;max-width:1100px}}table{{border-collapse:collapse;width:100%}}th,td{{border:1px solid #ccc;padding:.45rem;text-align:left}}code{{background:#eee;padding:.1rem .25rem}}</style></head>
-<body><h1>NetBlackBox forensic bundle</h1>
-<p>Generated: <code>{html.escape(str(summary['generated_at']))}</code></p>
-<p>Events: <strong>{summary['event_count']}</strong> · Incidents: <strong>{incident_count}</strong> · Longest event: <strong>{summary['longest_duration_seconds']} s</strong></p>
-<table><thead><tr><th>Start</th><th>State</th><th>Severity</th><th>Duration (s)</th></tr></thead><tbody>{rows}</tbody></table>
-</body></html>"""
-
-
 def create_forensic_bundle(
     base_dir: Path,
     *,
@@ -354,7 +332,9 @@ def create_forensic_bundle(
         (root / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
         (root / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
         (root / "incidents.json").write_text(json.dumps(incidents, indent=2), encoding="utf-8")
-        (root / "report.html").write_text(_render_report(summary, incidents), encoding="utf-8")
+        (root / "report.html").write_text(
+            render_forensic_report(summary, incidents, metadata), encoding="utf-8"
+        )
         (root / "README.txt").write_text(
             _render_readme(metadata, summary, incidents), encoding="utf-8"
         )

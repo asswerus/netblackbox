@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .bundle_analysis import analyze_bundle
+from .bundle_verifier import render_verification, verify_bundle
 from .config import Config, default_data_dir
 from .database_backup import create_database_backup
 from .forensic_bundle import create_forensic_bundle
@@ -17,15 +18,15 @@ def main() -> None:
     parser.add_argument(
         "command",
         nargs="?",
-        choices=("run", "bundle", "analyze"),
+        choices=("run", "bundle", "analyze", "verify"),
         default="run",
-        help="Run the monitor, create a forensic bundle, or analyze one offline",
+        help="Run the monitor, create a forensic bundle, analyze one, or verify its integrity",
     )
     parser.add_argument(
         "bundle_path",
         nargs="?",
         type=Path,
-        help="Forensic bundle ZIP to analyze",
+        help="Forensic bundle ZIP to analyze or verify",
     )
     parser.add_argument(
         "--config",
@@ -40,14 +41,23 @@ def main() -> None:
     parser.add_argument("--days", type=int, default=30, help="Number of days included in a bundle")
     args = parser.parse_args()
 
-    if args.command == "analyze":
+    if args.command in {"analyze", "verify"}:
         if args.bundle_path is None:
-            parser.error("analyze requires a bundle ZIP path")
-        print(analyze_bundle(args.bundle_path))
+            parser.error(f"{args.command} requires a bundle ZIP path")
+        try:
+            if args.command == "verify":
+                result = verify_bundle(args.bundle_path)
+                print(render_verification(result))
+                if not result.is_valid:
+                    raise SystemExit(1)
+            else:
+                print(analyze_bundle(args.bundle_path))
+        except (FileNotFoundError, ValueError) as error:
+            parser.exit(2, f"error: {error}\n")
         return
 
     if args.bundle_path is not None:
-        parser.error("bundle_path is only valid with the analyze command")
+        parser.error("bundle_path is only valid with the analyze or verify command")
 
     config = Config.load(args.config)
     database_path = config.base_dir / "netblackbox.sqlite3"

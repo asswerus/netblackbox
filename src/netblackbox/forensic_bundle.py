@@ -111,6 +111,76 @@ def _build_metadata(
     }
 
 
+def _render_readme(
+    metadata: dict[str, Any], summary: dict[str, Any], incidents: dict[str, Any]
+) -> str:
+    """Render a human-readable entry point for an extracted forensic bundle."""
+    incident_count = incidents.get("incident_count", len(incidents.get("incidents", [])))
+    return f"""NetBlackBox Forensic Bundle
+===========================
+
+This archive is a self-contained snapshot intended for offline incident analysis.
+Start with report.html for a human-readable overview or incidents.json for structured analysis.
+
+Bundle information
+------------------
+
+Generated:          {metadata['generated_at']}
+Created with:       {metadata['created_with']}
+NetBlackBox version:{metadata['netblackbox_version']}
+Bundle version:     {metadata['bundle_version']}
+Platform backend:   {metadata['platform']}
+Window:             {metadata['window_days']} days
+Events:             {summary['event_count']}
+Incidents:          {incident_count}
+
+Contents
+--------
+
+README.txt
+    This guide and suggested entry points.
+
+report.html
+    Human-readable event overview. Open it in a web browser.
+
+incidents.json
+    Incident-oriented aggregation with ordered phases and source event IDs.
+
+summary.json
+    Raw event summary and aggregate counts.
+
+metadata.json
+    Bundle, host, operating-system, timezone, and database metadata.
+
+manifest.json
+    SHA-256 hashes and byte sizes for every other archived file.
+
+{metadata['database']['filename']}
+    Consistent SQLite snapshot captured through SQLite's backup API.
+
+playback/
+    One JSON file per event, including the event row and its samples.
+
+diagnostics/
+    Diagnostic artifacts collected by NetBlackBox, when available.
+
+logs/
+    NetBlackBox log files, when available.
+
+Integrity
+---------
+
+manifest.json lists the expected SHA-256 digest and size of every file except itself.
+The database digest is also repeated in metadata.json for convenient verification.
+
+Privacy
+-------
+
+This bundle may contain hostnames, local or public IP addresses, routing information,
+probe results, diagnostics, and log data. Inspect it before sharing it with others.
+"""
+
+
 def _build_manifest(root: Path, generated_at: str) -> dict[str, Any]:
     files: dict[str, dict[str, Any]] = {}
     total_size = 0
@@ -268,6 +338,9 @@ def create_forensic_bundle(
         (root / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
         (root / "incidents.json").write_text(json.dumps(incidents, indent=2), encoding="utf-8")
         (root / "report.html").write_text(_render_report(summary, incidents), encoding="utf-8")
+        (root / "README.txt").write_text(
+            _render_readme(metadata, summary, incidents), encoding="utf-8"
+        )
         _write_playback(snapshot, events, root / "playback")
 
         for name in ("logs", "diagnostics"):

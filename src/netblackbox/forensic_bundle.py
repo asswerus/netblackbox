@@ -70,6 +70,23 @@ def _utc_offset(value: datetime) -> str | None:
     return f"{sign}{hours:02d}:{minutes:02d}"
 
 
+def _decode_probes(record: dict[str, Any]) -> dict[str, Any]:
+    """Replace the persisted probes_json string with a structured probes value."""
+    exported = dict(record)
+    if "probes_json" not in exported:
+        return exported
+
+    encoded = exported.pop("probes_json")
+    try:
+        exported["probes"] = json.loads(encoded)
+    except (json.JSONDecodeError, TypeError):
+        exported["probes"] = None
+        warnings = list(exported.get("warnings") or [])
+        warnings.append("Unable to decode probes_json")
+        exported["warnings"] = warnings
+    return exported
+
+
 def _build_metadata(
     *,
     snapshot: Path,
@@ -220,7 +237,7 @@ def _read_events(database_path: Path, cutoff: str) -> list[dict[str, Any]]:
     with sqlite3.connect(database_path) as connection:
         connection.row_factory = sqlite3.Row
         return [
-            dict(row)
+            _decode_probes(dict(row))
             for row in connection.execute(
                 "SELECT * FROM events WHERE start_time >= ? ORDER BY start_time",
                 (cutoff,),
@@ -234,7 +251,7 @@ def _write_playback(database_path: Path, events: list[dict[str, Any]], folder: P
         connection.row_factory = sqlite3.Row
         for event in events:
             samples = [
-                dict(row)
+                _decode_probes(dict(row))
                 for row in connection.execute(
                     "SELECT * FROM event_samples WHERE event_id=? ORDER BY timestamp",
                     (event["id"],),

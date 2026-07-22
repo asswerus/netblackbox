@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
+from typing import Any
 
 from .storage import default_data_dir, resolve_data_dir, resolve_path
 
@@ -36,6 +37,10 @@ class Config:
     def base_dir(self) -> Path:
         return resolve_data_dir(self.data_dir, config_path=self._config_path)
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return only user-configurable fields for JSON persistence."""
+        return {definition.name: getattr(self, definition.name) for definition in fields(self) if definition.init}
+
     @classmethod
     def load(cls, path: Path) -> "Config":
         resolved_path = resolve_path(path)
@@ -43,14 +48,10 @@ class Config:
             resolved_path.parent.mkdir(parents=True, exist_ok=True)
             cfg = cls()
             cfg._config_path = resolved_path
-            resolved_path.write_text(json.dumps(asdict(cfg), indent=2), encoding="utf-8")
+            resolved_path.write_text(json.dumps(cfg.to_dict(), indent=2), encoding="utf-8")
             return cfg
         raw = json.loads(resolved_path.read_text(encoding="utf-8"))
-        allowed = {
-            key
-            for key, definition in cls.__dataclass_fields__.items()
-            if definition.init
-        }
+        allowed = {definition.name for definition in fields(cls) if definition.init}
         cfg = cls(**{key: value for key, value in raw.items() if key in allowed})
         cfg._config_path = resolved_path
         return cfg

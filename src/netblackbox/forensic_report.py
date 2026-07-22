@@ -31,11 +31,45 @@ def _bars(values: dict[str, Any], *, empty_message: str) -> str:
     return "".join(rows)
 
 
+def _incident_timeline(incidents: list[dict[str, Any]]) -> str:
+    if not incidents:
+        return '<p class="muted">No incidents in this bundle window.</p>'
+
+    maximum = max((float(item.get("duration_seconds") or 0) for item in incidents), default=0) or 1
+    rows = []
+    for incident in incidents:
+        duration = float(incident.get("duration_seconds") or 0)
+        width = max(3, round((duration / maximum) * 100)) if duration else 3
+        severity = incident.get("severity") or "UNKNOWN"
+        incident_id = incident.get("id", "")
+        rows.append(
+            '<article class="timeline-item">'
+            '<div class="timeline-heading">'
+            f"<strong>Incident #{_escape(incident_id)}</strong>"
+            f'<span class="severity {_severity_class(severity)}">{_escape(severity)}</span>'
+            "</div>"
+            '<div class="timeline-meta">'
+            f"<span>{_escape(incident.get('start_time'))}</span>"
+            f"<span>{_escape(incident.get('end_time'))}</span>"
+            "</div>"
+            '<div class="timeline-track" aria-label="Incident duration">'
+            f'<span class="timeline-fill {_severity_class(severity)}" style="width:{width}%"></span>'
+            "</div>"
+            '<div class="timeline-footer">'
+            f"<span>{_escape(incident.get('primary_state'))}</span>"
+            f"<strong>{_escape(duration)} s</strong>"
+            "</div>"
+            "</article>"
+        )
+    return "".join(rows)
+
+
 def render_forensic_report(
     summary: dict[str, Any], incidents: dict[str, Any], metadata: dict[str, Any]
 ) -> str:
     """Render a self-contained, dependency-free forensic bundle report."""
-    incident_count = incidents.get("incident_count", len(incidents.get("incidents", [])))
+    incident_items = incidents.get("incidents", [])
+    incident_count = incidents.get("incident_count", len(incident_items))
     rows = []
     for event in summary.get("events", []):
         event_id = event.get("id", "")
@@ -81,9 +115,15 @@ th,td{{padding:.65rem;border-bottom:1px solid var(--border);text-align:left;vert
 .severity.info{{background:#e7f7ed;color:#176b36}} .severity.warning{{background:#fff3cd;color:#805b00}} .severity.major{{background:#ffe5cc;color:#9a4700}}
 .severity.critical{{background:#fde2e2;color:#9c1c1c}} .severity.unknown{{background:#eceff1;color:#455a64}}
 .bar-row{{display:grid;grid-template-columns:minmax(120px,1fr) minmax(100px,3fr) 3rem;gap:.75rem;align-items:center;margin:.55rem 0}}
-.bar-label{{overflow:hidden;text-overflow:ellipsis}} .bar-track{{height:.7rem;background:#e9edf2;border-radius:999px;overflow:hidden}}
-.bar-fill{{display:block;height:100%;background:var(--accent);border-radius:999px}} dl{{display:grid;grid-template-columns:max-content 1fr;gap:.5rem 1rem;margin:0}} dt{{font-weight:700}} dd{{margin:0;word-break:break-word}}
-@media(max-width:650px){{main{{padding:1rem}} .bar-row{{grid-template-columns:1fr 2fr 2rem}} dl{{grid-template-columns:1fr}}}}
+.bar-label{{overflow:hidden;text-overflow:ellipsis}} .bar-track,.timeline-track{{height:.7rem;background:#e9edf2;border-radius:999px;overflow:hidden}}
+.bar-fill,.timeline-fill{{display:block;height:100%;background:var(--accent);border-radius:999px}}
+.timeline{{display:grid;gap:.85rem}} .timeline-item{{padding:1rem;border:1px solid var(--border);border-radius:10px;background:#fbfcfd}}
+.timeline-heading,.timeline-meta,.timeline-footer{{display:flex;justify-content:space-between;gap:1rem;align-items:center}}
+.timeline-meta{{margin:.55rem 0 .4rem;color:var(--muted);font-size:.82rem}} .timeline-footer{{margin-top:.45rem;font-size:.9rem}}
+.timeline-fill.info{{background:#2f9e5b}} .timeline-fill.warning{{background:#d9a300}} .timeline-fill.major{{background:#df7b19}}
+.timeline-fill.critical{{background:#d33b3b}} .timeline-fill.unknown{{background:#78909c}}
+dl{{display:grid;grid-template-columns:max-content 1fr;gap:.5rem 1rem;margin:0}} dt{{font-weight:700}} dd{{margin:0;word-break:break-word}}
+@media(max-width:650px){{main{{padding:1rem}} .bar-row{{grid-template-columns:1fr 2fr 2rem}} dl{{grid-template-columns:1fr}} .timeline-meta{{align-items:flex-start;flex-direction:column;gap:.2rem}}}}
 </style>
 </head>
 <body><main>
@@ -101,6 +141,7 @@ th,td{{padding:.65rem;border-bottom:1px solid var(--border);text-align:left;vert
 <div class="panel"><h2>Events by severity</h2>{_bars(summary.get("by_severity", {}), empty_message="No severity data.")}</div>
 </section>
 <section class="panel"><h2>Incidents by hour</h2>{_bars(by_hour, empty_message="No incidents in this bundle window.")}</section>
+<section class="panel"><h2>Incident timeline</h2><div class="timeline">{_incident_timeline(incident_items)}</div></section>
 <section class="panel"><h2>Events</h2><div class="table-wrap"><table>
 <thead><tr><th>ID</th><th>Start</th><th>End</th><th>State</th><th>Severity</th><th>Duration (s)</th><th>Details</th></tr></thead>
 <tbody>{event_rows}</tbody></table></div></section>

@@ -63,7 +63,7 @@ cat > "$PLIST" <<EOF
   <string>io.github.asswerus.netblackbox</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${VENV_DIR}/bin/netblackbox</string>
+    <string>${VENV_DIR}/bin/nbb</string>
     <string>--config</string>
     <string>${CONFIG_PATH}</string>
   </array>

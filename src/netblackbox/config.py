@@ -39,7 +39,11 @@ class Config:
 
     def to_dict(self) -> dict[str, Any]:
         """Return only user-configurable fields for JSON persistence."""
-        return {definition.name: getattr(self, definition.name) for definition in fields(self) if definition.init}
+        return {
+            definition.name: getattr(self, definition.name)
+            for definition in fields(self)
+            if definition.init
+        }
 
     @classmethod
     def load(cls, path: Path) -> "Config":

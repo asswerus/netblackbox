@@ -6,11 +6,12 @@ from pathlib import Path
 
 from .bundle_analysis import analyze_bundle
 from .bundle_verifier import render_verification, verify_bundle
-from .config import Config, default_data_dir
+from .config import Config
 from .database_backup import create_database_backup
 from .forensic_bundle import create_forensic_bundle
 from .platforms import current_backend
 from .server_app import IncidentApiApp
+from .storage import database_path, default_config_path, resolve_path
 
 
 def main() -> None:
@@ -31,8 +32,13 @@ def main() -> None:
     parser.add_argument(
         "--config",
         type=Path,
-        default=default_data_dir() / "config.json",
+        default=default_config_path(),
         help="Path to the JSON configuration file",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        help="Override the persistent data directory from the configuration file",
     )
     parser.add_argument(
         "--summary", action="store_true", help="Print a 30-day event summary and exit"
@@ -45,13 +51,14 @@ def main() -> None:
         if args.bundle_path is None:
             parser.error(f"{args.command} requires a bundle ZIP path")
         try:
+            bundle_path = resolve_path(args.bundle_path)
             if args.command == "verify":
-                result = verify_bundle(args.bundle_path)
+                result = verify_bundle(bundle_path)
                 print(render_verification(result))
                 if not result.is_valid:
                     raise SystemExit(1)
             else:
-                print(analyze_bundle(args.bundle_path))
+                print(analyze_bundle(bundle_path))
         except (FileNotFoundError, ValueError) as error:
             parser.exit(2, f"error: {error}\n")
         return
@@ -60,7 +67,9 @@ def main() -> None:
         parser.error("bundle_path is only valid with the analyze or verify command")
 
     config = Config.load(args.config)
-    database_path = config.base_dir / "netblackbox.sqlite3"
+    if args.data_dir is not None:
+        config.data_dir = str(resolve_path(args.data_dir))
+    db_path = database_path(config.base_dir)
 
     if args.command == "bundle":
         backend = current_backend()
@@ -73,7 +82,7 @@ def main() -> None:
         print(bundle)
         return
 
-    create_database_backup(database_path)
+    create_database_backup(db_path)
     app = IncidentApiApp(config, current_backend())
 
     if args.summary:

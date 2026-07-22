@@ -1,19 +1,10 @@
 from __future__ import annotations
 
 import json
-import os
-import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-
-def default_data_dir() -> Path:
-    if os.name == "nt":
-        root = os.environ.get("LOCALAPPDATA") or str(Path.home())
-        return Path(root) / "NetBlackBox"
-    if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "NetBlackBox"
-    return Path.home() / ".local" / "share" / "netblackbox"
+from .storage import default_data_dir, resolve_data_dir, resolve_path
 
 
 @dataclass(slots=True)
@@ -39,18 +30,27 @@ class Config:
     http_port: int = 8080
     retention_days: int = 90
     external_probe_plugins: list[str] = field(default_factory=list)
+    _config_path: Path | None = field(default=None, init=False, repr=False, compare=False)
 
     @property
     def base_dir(self) -> Path:
-        return Path(os.path.expanduser(self.data_dir))
+        return resolve_data_dir(self.data_dir, config_path=self._config_path)
 
     @classmethod
     def load(cls, path: Path) -> "Config":
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
+        resolved_path = resolve_path(path)
+        if not resolved_path.exists():
+            resolved_path.parent.mkdir(parents=True, exist_ok=True)
             cfg = cls()
-            path.write_text(json.dumps(asdict(cfg), indent=2), encoding="utf-8")
+            cfg._config_path = resolved_path
+            resolved_path.write_text(json.dumps(asdict(cfg), indent=2), encoding="utf-8")
             return cfg
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        allowed = cls.__dataclass_fields__.keys()
-        return cls(**{key: value for key, value in raw.items() if key in allowed})
+        raw = json.loads(resolved_path.read_text(encoding="utf-8"))
+        allowed = {
+            key
+            for key, definition in cls.__dataclass_fields__.items()
+            if definition.init
+        }
+        cfg = cls(**{key: value for key, value in raw.items() if key in allowed})
+        cfg._config_path = resolved_path
+        return cfg

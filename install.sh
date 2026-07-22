@@ -4,6 +4,7 @@ set -euo pipefail
 SOURCE_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_SUPPORT="$HOME/Library/Application Support/NetBlackBox"
 VENV_DIR="$APP_SUPPORT/venv"
+VENV_PYTHON="$VENV_DIR/bin/python"
 CONFIG_PATH="$APP_SUPPORT/config.json"
 LOG_DIR="$APP_SUPPORT/logs"
 PLIST="$HOME/Library/LaunchAgents/io.github.asswerus.netblackbox.plist"
@@ -25,8 +26,8 @@ if [[ ! -d "$VENV_DIR" ]]; then
   "$PYTHON_PATH" -m venv "$VENV_DIR"
 fi
 
-"$VENV_DIR/bin/python" -m pip install --upgrade pip
-"$VENV_DIR/bin/python" -m pip install --upgrade "$SOURCE_DIR"
+"$VENV_PYTHON" -m pip install --upgrade pip
+"$VENV_PYTHON" -m pip install --upgrade "$SOURCE_DIR"
 
 if [[ ! -f "$CONFIG_PATH" ]]; then
   cat > "$CONFIG_PATH" <<EOF
@@ -63,7 +64,9 @@ cat > "$PLIST" <<EOF
   <string>io.github.asswerus.netblackbox</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${VENV_DIR}/bin/nbb</string>
+    <string>${VENV_PYTHON}</string>
+    <string>-m</string>
+    <string>netblackbox</string>
     <string>--config</string>
     <string>${CONFIG_PATH}</string>
   </array>

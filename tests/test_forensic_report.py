@@ -3,7 +3,7 @@ from __future__ import annotations
 from netblackbox.forensic_report import render_forensic_report
 
 
-def test_report_contains_dashboard_distributions_and_playback_links() -> None:
+def test_report_contains_dashboard_distributions_playback_and_timeline() -> None:
     summary = {
         "generated_at": "2026-07-17T10:30:00.000+00:00",
         "event_count": 1,
@@ -25,7 +25,16 @@ def test_report_contains_dashboard_distributions_and_playback_links() -> None:
     incidents = {
         "incident_count": 1,
         "by_hour": {str(hour): 1 if hour == 12 else 0 for hour in range(24)},
-        "incidents": [],
+        "incidents": [
+            {
+                "id": 3,
+                "start_time": "2026-07-16T12:00:00+00:00",
+                "end_time": "2026-07-16T12:00:08+00:00",
+                "duration_seconds": 8.0,
+                "primary_state": "PARTIAL_CONNECTIVITY",
+                "severity": "WARNING",
+            }
+        ],
     }
     metadata = {
         "window_days": 30,
@@ -46,15 +55,19 @@ def test_report_contains_dashboard_distributions_and_playback_links() -> None:
     assert "Events by state" in report
     assert "Events by severity" in report
     assert "Incidents by hour" in report
+    assert "Incident timeline" in report
+    assert "Incident #3" in report
     assert "PARTIAL_CONNECTIVITY" in report
     assert 'class="severity warning"' in report
+    assert 'class="timeline-fill warning"' in report
+    assert 'style="width:100%"' in report
     assert 'href="playback/7.json"' in report
     assert "test-platform" in report
     assert "test-host" in report
     assert "a" * 64 in report
 
 
-def test_report_escapes_event_and_metadata_values() -> None:
+def test_report_escapes_event_incident_and_metadata_values() -> None:
     report = render_forensic_report(
         {
             "generated_at": "now",
@@ -71,7 +84,17 @@ def test_report_escapes_event_and_metadata_values() -> None:
                 }
             ],
         },
-        {"incident_count": 0, "by_hour": {}},
+        {
+            "incident_count": 1,
+            "by_hour": {},
+            "incidents": [
+                {
+                    "id": "<incident>",
+                    "primary_state": "<unsafe-state>",
+                    "severity": "UNKNOWN",
+                }
+            ],
+        },
         {
             "window_days": 1,
             "platform": "<unsafe>",
@@ -81,5 +104,9 @@ def test_report_escapes_event_and_metadata_values() -> None:
     )
 
     assert "<script>" not in report
+    assert "<incident>" not in report
+    assert "<unsafe-state>" not in report
     assert "&lt;script&gt;" in report
+    assert "&lt;incident&gt;" in report
+    assert "&lt;unsafe-state&gt;" in report
     assert 'href="playback/7&amp;8.json"' in report
